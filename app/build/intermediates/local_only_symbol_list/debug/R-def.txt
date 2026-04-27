@@ -1,0 +1,6 @@
+R_DEF: Internal format may change without notice
+local
+id btnAdicionarCanhao
+id btnIniciar
+id jogoView
+layout activity_main

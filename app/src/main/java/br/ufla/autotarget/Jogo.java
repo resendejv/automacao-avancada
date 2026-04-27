@@ -73,6 +73,10 @@ public class Jogo {
         if (rodando) return;
         rodando = true;
 
+        // Limpar alvos antigos
+        alvos.clear();
+        projeteis.clear();
+
         // Criar alguns alvos iniciais
         Random rand = new Random();
         for (int i = 0; i < 5; i++) {
@@ -83,12 +87,21 @@ public class Jogo {
             alvo.start();
         }
 
-        // Iniciar canhões já adicionados
+        // Iniciar canhões já adicionados (recriando se foram terminados)
+        List<Canhao> canhoesAtivos = new ArrayList<>();
         for (Canhao c : canhoes) {
-            if (!c.isAlive()) {
+            if (c.getState() == Thread.State.TERMINATED) {
+                Canhao novoCanhao = new Canhao(c.getX(), c.getY(), this);
+                canhoesAtivos.add(novoCanhao);
+                novoCanhao.start();
+            } else if (!c.isAlive()) {
                 c.start();
+                canhoesAtivos.add(c);
+            } else {
+                canhoesAtivos.add(c);
             }
         }
+        canhoes = canhoesAtivos;
 
         // Thread para remover alvos destruídos e criar novos
         new Thread(() -> {

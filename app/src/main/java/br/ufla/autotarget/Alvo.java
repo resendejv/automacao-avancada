@@ -37,6 +37,7 @@ public abstract class Alvo extends Thread {
     public double getX() { return x; }
     public double getY() { return y; }
     public double getRaio() { return raio; }
+    public double getVelocidade() { return velocidade; }
     public boolean isAtivo() { return ativo; }
     public void setAtivo(boolean ativo) { this.ativo = ativo; }
 
