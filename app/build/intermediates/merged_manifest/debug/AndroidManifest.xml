@@ -23,6 +23,7 @@
         android:label="AutoTarget"
         android:roundIcon="@android:drawable/sym_def_app_icon"
         android:supportsRtl="true"
+        android:testOnly="true"
         android:theme="@style/Theme.AppCompat.Light.DarkActionBar" >
         <activity
             android:name="br.ufla.autotarget.MainActivity"
