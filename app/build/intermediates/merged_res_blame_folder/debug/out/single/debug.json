@@ -1,6 +1,10 @@
 [
     {
-        "merged": "br.ufla.autotarget.app-merged_res-31:/layout_activity_main.xml.flat",
-        "source": "br.ufla.autotarget.app-main-33:/layout/activity_main.xml"
+        "merged": "br.ufla.autotarget.app-merged_res-4:/layout_activity_main.xml.flat",
+        "source": "br.ufla.autotarget.app-main-6:/layout/activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\João Vitor\\.gradle\\daemon\\8.7\\br.ufla.autotarget.app-merged_res-4:\\layout_activity_main.xml.flat",
+        "source": "C:\\Users\\João Vitor\\.gradle\\daemon\\8.7\\br.ufla.autotarget.app-main-6:\\layout\\activity_main.xml"
     }
 ]

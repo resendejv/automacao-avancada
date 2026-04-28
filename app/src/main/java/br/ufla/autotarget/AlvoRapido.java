@@ -2,8 +2,12 @@ package br.ufla.autotarget;
 
 import java.util.Random;
 
+/**
+ * Alvo rápido — velocidade maior, raio menor.
+ * Mais difícil de acertar que o AlvoComum.
+ */
 public class AlvoRapido extends Alvo {
-    private Random random;
+    private final Random random;
 
     public AlvoRapido(double x, double y, int screenWidth, int screenHeight, Jogo jogo) {
         super(x, y, 15.0, 7.0, screenWidth, screenHeight, jogo);
@@ -14,13 +18,6 @@ public class AlvoRapido extends Alvo {
     public void mover() {
         x += dx * velocidade;
         y += dy * velocidade;
-
-        // Ocasionalmente muda de direção de forma errática
-        if (random.nextDouble() < 0.05) {
-            double angle = random.nextDouble() * 2 * Math.PI;
-            dx = Math.cos(angle);
-            dy = Math.sin(angle);
-        }
 
         // Bounce nas bordas
         if (x - raio < 0 || x + raio > screenWidth) {

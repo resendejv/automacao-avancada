@@ -1261,6 +1261,8 @@ color abc_tint_spinner
 color abc_tint_switch_track
 color accent_material_dark
 color accent_material_light
+color alvo_comum
+color alvo_rapido
 color androidx_core_ripple_material_light
 color androidx_core_secondary_text_default_material_light
 color background_floating_material_dark
@@ -1275,10 +1277,17 @@ color bright_foreground_material_dark
 color bright_foreground_material_light
 color button_material_dark
 color button_material_light
+color campo_direito
+color campo_esquerdo
+color canhao_dir
+color canhao_esq
 color cardview_dark_background
 color cardview_light_background
 color cardview_shadow_end_color
 color cardview_shadow_start_color
+color colorAccent
+color colorPrimary
+color colorPrimaryDark
 color design_bottom_navigation_shadow_color
 color design_box_stroke_color
 color design_dark_default_color_background
@@ -1321,12 +1330,16 @@ color dim_foreground_disabled_material_dark
 color dim_foreground_disabled_material_light
 color dim_foreground_material_dark
 color dim_foreground_material_light
+color energia
+color energia_baixa
 color error_color_material_dark
 color error_color_material_light
 color foreground_material_dark
 color foreground_material_light
+color fundo_escuro
 color highlighted_text_material_dark
 color highlighted_text_material_light
+color hud_fundo
 color m3_appbar_overlay_color
 color m3_assist_chip_icon_tint_color
 color m3_assist_chip_stroke_color
@@ -1988,6 +2001,7 @@ color primary_text_default_material_dark
 color primary_text_default_material_light
 color primary_text_disabled_material_dark
 color primary_text_disabled_material_light
+color projetil
 color ripple_material_dark
 color ripple_material_light
 color secondary_text_default_material_dark
@@ -2000,6 +2014,7 @@ color switch_thumb_material_dark
 color switch_thumb_material_light
 color switch_thumb_normal_material_dark
 color switch_thumb_normal_material_light
+color texto_branco
 color tooltip_background_dark
 color tooltip_background_light
 dimen abc_action_bar_content_inset_material
@@ -3649,6 +3664,7 @@ string abc_shareactionprovider_share_with
 string abc_shareactionprovider_share_with_application
 string abc_toolbar_collapse_description
 string androidx_startup
+string app_name
 string appbar_scrolling_view_behavior
 string bottom_sheet_behavior
 string bottomsheet_action_collapse
@@ -3656,6 +3672,10 @@ string bottomsheet_action_expand
 string bottomsheet_action_expand_halfway
 string bottomsheet_drag_handle_clicked
 string bottomsheet_drag_handle_content_description
+string btn_adicionar_canhao
+string btn_iniciar
+string btn_parar
+string btn_ranking
 string character_counter_content_description
 string character_counter_overflowed_content_description
 string character_counter_pattern
@@ -3706,6 +3726,10 @@ string material_timepicker_minute
 string material_timepicker_pm
 string material_timepicker_select_time
 string material_timepicker_text_input_mode_description
+string msg_canhao_adicionado
+string msg_jogo_iniciado
+string msg_jogo_parado
+string msg_toque_posicionar
 string mtrl_badge_numberless_content_description
 string mtrl_checkbox_button_icon_path_checked
 string mtrl_checkbox_button_icon_path_group_name
@@ -3780,6 +3804,7 @@ string searchview_navigation_content_description
 string side_sheet_accessibility_pane_title
 string side_sheet_behavior
 string status_bar_notification_info_overflow
+string titulo_jogo_encerrado
 style AlertDialog_AppCompat
 style AlertDialog_AppCompat_Light
 style Animation_AppCompat_Dialog
@@ -3791,6 +3816,7 @@ style Animation_Material3_SideSheetDialog
 style Animation_Material3_SideSheetDialog_Left
 style Animation_Material3_SideSheetDialog_Right
 style Animation_MaterialComponents_BottomSheetDialog
+style AppTheme
 style Base_AlertDialog_AppCompat
 style Base_AlertDialog_AppCompat_Light
 style Base_Animation_AppCompat_Dialog

@@ -3,59 +3,68 @@ package br.ufla.autotarget;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
-public abstract class Alvo extends Thread {
-    protected double x;
-    protected double y;
+/**
+ * Classe abstrata que representa um alvo no jogo.
+ * Cada alvo roda em sua própria thread, movendo-se continuamente pelo canvas.
+ * Utiliza semáforo para região crítica de colisão.
+ */
+public abstract class Alvo extends EntidadeMovel {
     protected double raio;
-    protected double velocidade;
-    protected boolean ativo;
     protected double dx;
     protected double dy;
-    protected int screenWidth;
-    protected int screenHeight;
-    protected Jogo jogo;
-    
+
     // Semáforo para controlar acesso de projéteis a este alvo (Região Crítica)
-    public Semaphore semaforoColisao = new Semaphore(1);
+    public final Semaphore semaforoColisao = new Semaphore(1);
+
+    // Campo que identifica o lado: 0 = esquerdo, 1 = direito
+    protected int campo;
 
     public Alvo(double x, double y, double raio, double velocidade, int screenWidth, int screenHeight, Jogo jogo) {
-        this.x = x;
-        this.y = y;
+        super(x, y, velocidade, screenWidth, screenHeight, jogo);
         this.raio = raio;
-        this.velocidade = velocidade;
-        this.ativo = true;
-        this.screenWidth = screenWidth;
-        this.screenHeight = screenHeight;
-        this.jogo = jogo;
 
         Random rand = new Random();
         double angle = rand.nextDouble() * 2 * Math.PI;
         this.dx = Math.cos(angle);
         this.dy = Math.sin(angle);
+
+        // Determina o campo baseado na posição x inicial
+        this.campo = (x < screenWidth / 2.0) ? 0 : 1;
     }
 
-    public double getX() { return x; }
-    public double getY() { return y; }
     public double getRaio() { return raio; }
-    public double getVelocidade() { return velocidade; }
-    public boolean isAtivo() { return ativo; }
-    public void setAtivo(boolean ativo) { this.ativo = ativo; }
+    public int getCampo() { return campo; }
 
-    // Método polimórfico
-    public abstract void mover();
+    public void setCampo(int campo) { this.campo = campo; }
 
+    /**
+     * Loop principal da thread do alvo.
+     * Move o alvo a cada ~30ms enquanto estiver ativo.
+     */
     @Override
     public void run() {
-        while (ativo) {
-            mover();
-            // Verifica colisões se necessário (ou deixa o projétil verificar)
-            
+        if (!ativo) return;
+        do {
             try {
-                Thread.sleep(30); // ~33 fps
+                mover();
+
+                // Atualiza campo baseado na posição atual
+                int novoCampo = (x < screenWidth / 2.0) ? 0 : 1;
+                if (novoCampo != campo) {
+                    campo = novoCampo; // Cruzou a linha divisória
+                }
+
+                Thread.sleep(30); // ~33 FPS para movimento do alvo
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
+            } catch (Exception e) {
+                // Tratamento geral de exceções no alvo
+                android.util.Log.e("Alvo", "Erro no loop do alvo: " + e.getMessage());
             }
-        }
+        } while (ativo);
     }
+
+    @Override
+    public abstract void mover();
 }

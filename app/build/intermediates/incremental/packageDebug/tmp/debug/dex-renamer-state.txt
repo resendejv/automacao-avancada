@@ -1,10 +1,10 @@
-#Sun Apr 26 22:05:58 BRT 2026
-base.2=C\:\\Users\\zoomg\\OneDrive\\Área de Trabalho\\UFLA\\projeto - automação avançada\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\7\\classes.dex
-path.2=7/classes.dex
-base.1=C\:\\Users\\zoomg\\OneDrive\\Área de Trabalho\\UFLA\\projeto - automação avançada\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
-path.1=0/classes.dex
-base.0=C\:\\Users\\zoomg\\OneDrive\\Área de Trabalho\\UFLA\\projeto - automação avançada\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
-renamed.2=classes3.dex
-renamed.1=classes2.dex
-renamed.0=classes.dex
+#Tue Apr 28 14:26:17 BRT 2026
+base.0=C\:\\Projetos Joao Vitor\\automacao-avancada\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
+base.1=C\:\\Projetos Joao Vitor\\automacao-avancada\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
+base.2=C\:\\Projetos Joao Vitor\\automacao-avancada\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\7\\classes.dex
 path.0=classes.dex
+path.1=0/classes.dex
+path.2=7/classes.dex
+renamed.0=classes.dex
+renamed.1=classes2.dex
+renamed.2=classes3.dex

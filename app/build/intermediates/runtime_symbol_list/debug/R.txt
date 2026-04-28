@@ -1260,6 +1260,8 @@ int color abc_tint_spinner 0x7f050017
 int color abc_tint_switch_track 0x7f050018
 int color accent_material_dark 0x7f050019
 int color accent_material_light 0x7f05001a
+int color alvo_comum 0x7f050300
+int color alvo_rapido 0x7f050301
 int color androidx_core_ripple_material_light 0x7f05001b
 int color androidx_core_secondary_text_default_material_light 0x7f05001c
 int color background_floating_material_dark 0x7f05001d
@@ -1274,10 +1276,17 @@ int color bright_foreground_material_dark 0x7f050025
 int color bright_foreground_material_light 0x7f050026
 int color button_material_dark 0x7f050027
 int color button_material_light 0x7f050028
+int color campo_direito 0x7f050302
+int color campo_esquerdo 0x7f050303
+int color canhao_dir 0x7f050304
+int color canhao_esq 0x7f050305
 int color cardview_dark_background 0x7f050029
 int color cardview_light_background 0x7f05002a
 int color cardview_shadow_end_color 0x7f05002b
 int color cardview_shadow_start_color 0x7f05002c
+int color colorAccent 0x7f050306
+int color colorPrimary 0x7f050307
+int color colorPrimaryDark 0x7f050308
 int color design_bottom_navigation_shadow_color 0x7f05002d
 int color design_box_stroke_color 0x7f05002e
 int color design_dark_default_color_background 0x7f05002f
@@ -1320,12 +1329,16 @@ int color dim_foreground_disabled_material_dark 0x7f050053
 int color dim_foreground_disabled_material_light 0x7f050054
 int color dim_foreground_material_dark 0x7f050055
 int color dim_foreground_material_light 0x7f050056
+int color energia 0x7f050309
+int color energia_baixa 0x7f05030a
 int color error_color_material_dark 0x7f050057
 int color error_color_material_light 0x7f050058
 int color foreground_material_dark 0x7f050059
 int color foreground_material_light 0x7f05005a
+int color fundo_escuro 0x7f05030b
 int color highlighted_text_material_dark 0x7f05005b
 int color highlighted_text_material_light 0x7f05005c
+int color hud_fundo 0x7f05030c
 int color m3_appbar_overlay_color 0x7f05005d
 int color m3_assist_chip_icon_tint_color 0x7f05005e
 int color m3_assist_chip_stroke_color 0x7f05005f
@@ -1987,6 +2000,7 @@ int color primary_text_default_material_dark 0x7f0502ee
 int color primary_text_default_material_light 0x7f0502ef
 int color primary_text_disabled_material_dark 0x7f0502f0
 int color primary_text_disabled_material_light 0x7f0502f1
+int color projetil 0x7f05030d
 int color ripple_material_dark 0x7f0502f2
 int color ripple_material_light 0x7f0502f3
 int color secondary_text_default_material_dark 0x7f0502f4
@@ -1999,6 +2013,7 @@ int color switch_thumb_material_dark 0x7f0502fa
 int color switch_thumb_material_light 0x7f0502fb
 int color switch_thumb_normal_material_dark 0x7f0502fc
 int color switch_thumb_normal_material_light 0x7f0502fd
+int color texto_branco 0x7f05030e
 int color tooltip_background_dark 0x7f0502fe
 int color tooltip_background_light 0x7f0502ff
 int dimen abc_action_bar_content_inset_material 0x7f060000
@@ -3648,6 +3663,7 @@ int string abc_shareactionprovider_share_with 0x7f0e0018
 int string abc_shareactionprovider_share_with_application 0x7f0e0019
 int string abc_toolbar_collapse_description 0x7f0e001a
 int string androidx_startup 0x7f0e001b
+int string app_name 0x7f0e009f
 int string appbar_scrolling_view_behavior 0x7f0e001c
 int string bottom_sheet_behavior 0x7f0e001d
 int string bottomsheet_action_collapse 0x7f0e001e
@@ -3655,6 +3671,10 @@ int string bottomsheet_action_expand 0x7f0e001f
 int string bottomsheet_action_expand_halfway 0x7f0e0020
 int string bottomsheet_drag_handle_clicked 0x7f0e0021
 int string bottomsheet_drag_handle_content_description 0x7f0e0022
+int string btn_adicionar_canhao 0x7f0e00a0
+int string btn_iniciar 0x7f0e00a1
+int string btn_parar 0x7f0e00a2
+int string btn_ranking 0x7f0e00a3
 int string character_counter_content_description 0x7f0e0023
 int string character_counter_overflowed_content_description 0x7f0e0024
 int string character_counter_pattern 0x7f0e0025
@@ -3705,6 +3725,10 @@ int string material_timepicker_minute 0x7f0e0051
 int string material_timepicker_pm 0x7f0e0052
 int string material_timepicker_select_time 0x7f0e0053
 int string material_timepicker_text_input_mode_description 0x7f0e0054
+int string msg_canhao_adicionado 0x7f0e00a4
+int string msg_jogo_iniciado 0x7f0e00a5
+int string msg_jogo_parado 0x7f0e00a6
+int string msg_toque_posicionar 0x7f0e00a7
 int string mtrl_badge_numberless_content_description 0x7f0e0055
 int string mtrl_checkbox_button_icon_path_checked 0x7f0e0056
 int string mtrl_checkbox_button_icon_path_group_name 0x7f0e0057
@@ -3779,6 +3803,7 @@ int string searchview_navigation_content_description 0x7f0e009b
 int string side_sheet_accessibility_pane_title 0x7f0e009c
 int string side_sheet_behavior 0x7f0e009d
 int string status_bar_notification_info_overflow 0x7f0e009e
+int string titulo_jogo_encerrado 0x7f0e00a9
 int style AlertDialog_AppCompat 0x7f0f0000
 int style AlertDialog_AppCompat_Light 0x7f0f0001
 int style Animation_AppCompat_Dialog 0x7f0f0002
@@ -3790,6 +3815,7 @@ int style Animation_Material3_SideSheetDialog 0x7f0f0007
 int style Animation_Material3_SideSheetDialog_Left 0x7f0f0008
 int style Animation_Material3_SideSheetDialog_Right 0x7f0f0009
 int style Animation_MaterialComponents_BottomSheetDialog 0x7f0f000a
+int style AppTheme 0x7f0f045c
 int style Base_AlertDialog_AppCompat 0x7f0f000b
 int style Base_AlertDialog_AppCompat_Light 0x7f0f000c
 int style Base_Animation_AppCompat_Dialog 0x7f0f000d

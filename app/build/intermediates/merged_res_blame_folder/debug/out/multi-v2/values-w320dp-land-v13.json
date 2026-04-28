@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "br.ufla.autotarget.app-mergeDebugResources-29:/values-w320dp-land-v13/values-w320dp-land-v13.xml",
+            "outputFile": "br.ufla.autotarget.app-mergeDebugResources-2:/values-w320dp-land-v13/values-w320dp-land-v13.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\zoomg\\.gradle\\caches\\transforms-3\\3630f8cda1d9c7653134793a30870547\\transformed\\material-1.11.0\\res\\values-w320dp-land-v13\\values-w320dp-land-v13.xml",
+                    "source": "C:\\Users\\João Vitor\\.gradle\\caches\\transforms-4\\518aff9b5455e450b373c9594763223e\\transformed\\material-1.11.0\\res\\values-w320dp-land-v13\\values-w320dp-land-v13.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",
