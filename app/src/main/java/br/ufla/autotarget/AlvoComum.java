@@ -7,7 +7,7 @@ package br.ufla.autotarget;
 public class AlvoComum extends Alvo {
 
     public AlvoComum(double x, double y, int screenWidth, int screenHeight, Jogo jogo) {
-        super(x, y, 20.0, 3.0, screenWidth, screenHeight, jogo);
+        super(x, y, 20.0, 3.5, screenWidth, screenHeight, jogo);
     }
 
     @Override
