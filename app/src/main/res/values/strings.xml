@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AutoTarget</string>
+    <string name="btn_iniciar">▶ Iniciar</string>
+    <string name="btn_parar">⏹ Parar</string>
+    <string name="btn_adicionar_canhao">🎯 Adicionar Canhão</string>
+    <string name="btn_ranking">🏆 Ranking</string>
+    <string name="msg_jogo_iniciado">Jogo Iniciado! Duração: 60s</string>
+    <string name="msg_jogo_parado">Jogo parado!</string>
+    <string name="msg_canhao_adicionado">Canhão adicionado!</string>
+    <string name="msg_toque_posicionar">Toque na tela para posicionar o canhão</string>
+    <string name="titulo_jogo_encerrado">🏆 Jogo Encerrado!</string>
+</resources>
