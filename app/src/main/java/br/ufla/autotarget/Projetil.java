@@ -13,7 +13,7 @@ public class Projetil extends Thread {
     private volatile double y;
     private final double dx;
     private final double dy;
-    private final double velocidade = 15.0;
+    private final double velocidade = 17.0;
     private volatile boolean ativo = true;
     private final Jogo jogo;
     private final int campo; // campo do canhão que disparou
