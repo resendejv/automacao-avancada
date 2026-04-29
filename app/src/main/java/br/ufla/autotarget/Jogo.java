@@ -34,7 +34,7 @@ public class Jogo {
     private double energiaEsquerda = 100.0;
     private double energiaDireita = 100.0;
     private static final double ENERGIA_MAXIMA = 100.0;
-    private static final double ENERGIA_POR_CANHAO = 0.8; // por segundo
+    private static final double ENERGIA_POR_CANHAO = 1; // por segundo
     private static final double ENERGIA_REGEN = 1.0;      // regeneração por segundo
 
     // Estado do jogo
