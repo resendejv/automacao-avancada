@@ -85,7 +85,6 @@ public class Projetil extends Thread {
 
                 // Double check após adquirir o lock
                 if (!alvo.isAtivo()) {
-                    alvo.semaforoColisao.release();
                     continue;
                 }
 
@@ -95,14 +94,13 @@ public class Projetil extends Thread {
                 if (dist < alvo.getRaio() + RAIO_PROJETIL) {
                     alvo.setAtivo(false); // Abatido
                     this.ativo = false;   // Destruído no impacto
-                    alvo.semaforoColisao.release();
                     jogo.registrarAbate(this.campo);
                     break;
                 }
-
-                alvo.semaforoColisao.release();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            } finally {
+                alvo.semaforoColisao.release();
             }
         }
     }

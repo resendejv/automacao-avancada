@@ -35,6 +35,8 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
     private Paint paintAlvoRapido;
     private Paint paintAlvoComumBorda;
     private Paint paintAlvoRapidoBorda;
+    private Paint paintGlowComum;
+    private Paint paintGlowRapido;
     private Paint paintCanhaoEsq;
     private Paint paintCanhaoDir;
     private Paint paintCanhaoBorda;
@@ -106,6 +108,17 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
         paintAlvoRapidoBorda.setColor(Color.parseColor("#FFCCBC"));
         paintAlvoRapidoBorda.setStyle(Paint.Style.STROKE);
         paintAlvoRapidoBorda.setStrokeWidth(3f);
+
+        // Glows (Pré-alocados para evitar pressão no GC)
+        paintGlowComum = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintGlowComum.setColor(COR_ALVO_COMUM);
+        paintGlowComum.setAlpha(40);
+        paintGlowComum.setStyle(Paint.Style.FILL);
+
+        paintGlowRapido = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintGlowRapido.setColor(COR_ALVO_RAPIDO);
+        paintGlowRapido.setAlpha(60);
+        paintGlowRapido.setStyle(Paint.Style.FILL);
 
         // Canhões
         paintCanhaoEsq = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -233,7 +246,8 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
                     jogo.adicionarCanhao(event.getX(), event.getY());
                     modoAdicionarCanhao = false;
                 } catch (JogoException e) {
-                    // Ignora erro silenciosamente conforme solicitado (remover pop-ups)
+                    // Feedback ao usuário em caso de erro na regra de negócio
+                    Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             }
         }
@@ -388,20 +402,14 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
             float ar = (float) alvo.getRaio();
 
             if (alvo instanceof AlvoRapido) {
-                // Glow externo
-                Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-                glow.setColor(COR_ALVO_RAPIDO);
-                glow.setAlpha(60);
-                canvas.drawCircle(ax, ay, ar + 8, glow);
+                // Glow externo (uso de Paint pré-alocado)
+                canvas.drawCircle(ax, ay, ar + 8, paintGlowRapido);
 
                 canvas.drawCircle(ax, ay, ar, paintAlvoRapido);
                 canvas.drawCircle(ax, ay, ar, paintAlvoRapidoBorda);
             } else {
-                // Glow externo
-                Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-                glow.setColor(COR_ALVO_COMUM);
-                glow.setAlpha(40);
-                canvas.drawCircle(ax, ay, ar + 6, glow);
+                // Glow externo (uso de Paint pré-alocado)
+                canvas.drawCircle(ax, ay, ar + 6, paintGlowComum);
 
                 canvas.drawCircle(ax, ay, ar, paintAlvoComum);
                 canvas.drawCircle(ax, ay, ar, paintAlvoComumBorda);

@@ -57,6 +57,17 @@ public class MainActivity extends AppCompatActivity implements Jogo.JogoListener
         });
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.d(TAG, "onPause");
+        if (jogoView != null && jogoView.getJogo() != null) {
+            // Interrompe o jogo para economizar recursos em segundo plano
+            jogoView.getJogo().pararJogo();
+            btnIniciar.setText(R.string.btn_iniciar);
+        }
+    }
+
     /**
      * Callback chamado quando o jogo encerra (timer zerou).
      */

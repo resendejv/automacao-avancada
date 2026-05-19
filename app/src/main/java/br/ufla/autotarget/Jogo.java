@@ -5,6 +5,9 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Classe principal do jogo AutoTarget.
@@ -17,22 +20,22 @@ import java.util.Random;
 public class Jogo {
     private static final String TAG = "Jogo";
 
-    // Listas compartilhadas (região crítica)
-    private final List<Alvo> alvos;
-    private final List<Canhao> canhoes;
-    private final List<Projetil> projeteis;
+    // Listas thread-safe para alta performance de leitura na UI
+    private final List<Alvo> alvos = new CopyOnWriteArrayList<>();
+    private final List<Canhao> canhoes = new CopyOnWriteArrayList<>();
+    private final List<Projetil> projeteis = new CopyOnWriteArrayList<>();
 
     // Dimensões da tela
     private final int screenWidth;
     private final int screenHeight;
 
-    // Placar por campo
-    private int abatesEsquerda = 0;
-    private int abatesDireita = 0;
+    // Placar atômico para evitar contenção
+    private final AtomicInteger abatesEsquerda = new AtomicInteger(0);
+    private final AtomicInteger abatesDireita = new AtomicInteger(0);
 
-    // Energia por campo (consumida por canhão ativo por segundo)
-    private double energiaEsquerda = 100.0;
-    private double energiaDireita = 100.0;
+    // Energia por campo com acesso atômico
+    private final AtomicReference<Double> energiaEsquerda = new AtomicReference<>(100.0);
+    private final AtomicReference<Double> energiaDireita = new AtomicReference<>(100.0);
     private static final double ENERGIA_MAXIMA = 100.0;
     private static final double ENERGIA_POR_CANHAO = 1; // por segundo
     private static final double ENERGIA_REGEN = 1.0;      // regeneração por segundo
@@ -45,7 +48,11 @@ public class Jogo {
     private long tempoInicio;
     private static final int DURACAO_JOGO_SEGUNDOS = 60;
 
-    // Thread de reconciliação
+    // Threads de controle
+    private Thread threadGerenciadorAlvos;
+    private Thread threadEnergia;
+    private Thread threadTimer;
+    private Thread threadAutoRestart;
     private DataReconciliation reconciliacao;
 
     // Listener para eventos do jogo
@@ -57,9 +64,6 @@ public class Jogo {
     public Jogo(int screenWidth, int screenHeight) {
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
-        this.alvos = new ArrayList<>();
-        this.canhoes = new ArrayList<>();
-        this.projeteis = new ArrayList<>();
     }
 
     // ==================== Getters ====================
@@ -67,11 +71,11 @@ public class Jogo {
     public int getScreenWidth() { return screenWidth; }
     public int getScreenHeight() { return screenHeight; }
 
-    public synchronized int getAbatesEsquerda() { return abatesEsquerda; }
-    public synchronized int getAbatesDireita() { return abatesDireita; }
+    public int getAbatesEsquerda() { return abatesEsquerda.get(); }
+    public int getAbatesDireita() { return abatesDireita.get(); }
 
-    public synchronized double getEnergiaEsquerda() { return energiaEsquerda; }
-    public synchronized double getEnergiaDireita() { return energiaDireita; }
+    public double getEnergiaEsquerda() { return energiaEsquerda.get(); }
+    public double getEnergiaDireita() { return energiaDireita.get(); }
 
     public boolean isRodando() { return rodando; }
     public boolean isEncerrado() { return encerrado; }
@@ -79,8 +83,8 @@ public class Jogo {
     /**
      * Verifica se o campo possui energia suficiente para atirar.
      */
-    public synchronized boolean temEnergia(int campo) {
-        return (campo == 0) ? energiaEsquerda > 0 : energiaDireita > 0;
+    public boolean temEnergia(int campo) {
+        return (campo == 0) ? energiaEsquerda.get() > 0 : energiaDireita.get() > 0;
     }
 
     /**
@@ -96,8 +100,10 @@ public class Jogo {
      * Retorna o vencedor da partida.
      */
     public String getVencedor() {
-        if (abatesEsquerda > abatesDireita) return "ESQUERDA";
-        if (abatesDireita > abatesEsquerda) return "DIREITA";
+        int e = abatesEsquerda.get();
+        int d = abatesDireita.get();
+        if (e > d) return "ESQUERDA";
+        if (d > e) return "DIREITA";
         return "EMPATE";
     }
 
@@ -111,28 +117,21 @@ public class Jogo {
      * Registra um abate no campo especificado.
      * @param campo 0 = esquerdo, 1 = direito
      */
-    public synchronized void registrarAbate(int campo) {
-        switch (campo) {
-            case 0:
-                abatesEsquerda++;
-                break;
-            case 1:
-                abatesDireita++;
-                break;
-            default:
-                // Log.w(TAG, "Campo inválido para registrar abate: " + campo);
-                return;
+    public void registrarAbate(int campo) {
+        if (campo == 0) {
+            abatesEsquerda.incrementAndGet();
+        } else if (campo == 1) {
+            abatesDireita.incrementAndGet();
         }
-        // Log.d(TAG, "Abate registrado! Esq: " + abatesEsquerda + " Dir: " + abatesDireita);
     }
 
-    public synchronized int getAbates() {
-        return abatesEsquerda + abatesDireita;
+    public int getAbates() {
+        return abatesEsquerda.get() + abatesDireita.get();
     }
 
     // ==================== Gerenciamento de Entidades ====================
 
-    public synchronized void adicionarCanhao(double x, double y) throws JogoException {
+    public void adicionarCanhao(double x, double y) throws JogoException {
         int campo = (x < screenWidth / 2.0) ? 0 : 1;
 
         // Validação de posição
@@ -140,15 +139,14 @@ public class Jogo {
             throw new JogoException("Posição do canhão fora dos limites da tela!");
         }
 
-        // Validação de limite máximo
-        int canhoesNoCampo = getCanhoesPorCampo(campo).size();
-        if (canhoesNoCampo >= Canhao.MAX_CANHOES) {
+        // Validação de limite máximo e energia (operação atômica simplificada via listas thread-safe)
+        List<Canhao> canhoesNoCampo = getCanhoesPorCampo(campo);
+        if (canhoesNoCampo.size() >= Canhao.MAX_CANHOES) {
             throw new JogoException("Limite máximo de " + Canhao.MAX_CANHOES +
                     " canhões atingido no campo " + (campo == 0 ? "esquerdo" : "direito") + "!");
         }
 
-        // Verificar energia mínima para instalação
-        double energiaCampo = (campo == 0) ? energiaEsquerda : energiaDireita;
+        double energiaCampo = (campo == 0) ? energiaEsquerda.get() : energiaDireita.get();
         if (energiaCampo < 10.0) {
             throw new JogoException("Energia insuficiente para adicionar canhão!");
         }
@@ -157,46 +155,46 @@ public class Jogo {
         canhoes.add(canhao);
 
         // Atualiza penalidade em todos os canhões do campo
-        int totalCanhoesNoCampo = canhoesNoCampo + 1;
+        int totalCanhoesNoCampo = canhoesNoCampo.size() + 1;
         for (Canhao c : canhoes) {
             if (c.getCampo() == campo) {
                 c.atualizarPenalidade(totalCanhoesNoCampo);
             }
         }
 
+        // Inicia a thread fora de qualquer bloco de sincronização complexo se necessário, 
+        // mas como as listas são CopyOnWrite e não há lock 'this' global aqui, o risco é menor.
+        // Contudo, mover para o final do método é mais limpo.
         if (rodando) {
             canhao.start();
         }
-
-        // Log.d(TAG, "Canhão adicionado no campo " + (campo == 0 ? "ESQ" : "DIR") +
-        //         " em (" + x + ", " + y + "). Total no campo: " + totalCanhoesNoCampo);
     }
 
-    public synchronized void adicionarProjetil(Projetil p) {
+    public void adicionarProjetil(Projetil p) {
         projeteis.add(p);
     }
 
-    public synchronized void removerProjetil(Projetil p) {
+    public void removerProjetil(Projetil p) {
         projeteis.remove(p);
     }
 
-    // Retorna cópia para iteração segura
-    public synchronized List<Alvo> getAlvos() {
-        return new ArrayList<>(alvos);
+    // Retorna a própria lista (CopyOnWriteArrayList permite iteração segura)
+    public List<Alvo> getAlvos() {
+        return alvos;
     }
 
-    public synchronized List<Canhao> getCanhoes() {
-        return new ArrayList<>(canhoes);
+    public List<Canhao> getCanhoes() {
+        return canhoes;
     }
 
-    public synchronized List<Projetil> getProjeteis() {
-        return new ArrayList<>(projeteis);
+    public List<Projetil> getProjeteis() {
+        return projeteis;
     }
 
     /**
      * Retorna canhões de um campo específico.
      */
-    public synchronized List<Canhao> getCanhoesPorCampo(int campo) {
+    public List<Canhao> getCanhoesPorCampo(int campo) {
         List<Canhao> resultado = new ArrayList<>();
         for (Canhao c : canhoes) {
             if (c.getCampo() == campo) resultado.add(c);
@@ -214,16 +212,25 @@ public class Jogo {
         if (rodando) return;
         rodando = true;
         encerrado = false;
-        abatesEsquerda = 0;
-        abatesDireita = 0;
-        energiaEsquerda = ENERGIA_MAXIMA;
-        energiaDireita = ENERGIA_MAXIMA;
+        abatesEsquerda.set(0);
+        abatesDireita.set(0);
+        energiaEsquerda.set(ENERGIA_MAXIMA);
+        energiaDireita.set(ENERGIA_MAXIMA);
         tempoInicio = System.currentTimeMillis();
 
         // Limpar entidades antigas
-        for (Alvo a : alvos) a.setAtivo(false);
-        for (Projetil p : projeteis) p.setAtivo(false);
-        for (Canhao c : canhoes) c.setAtivo(false);
+        for (Alvo a : alvos) {
+            a.setAtivo(false);
+            a.interrupt();
+        }
+        for (Projetil p : projeteis) {
+            p.setAtivo(false);
+            p.interrupt();
+        }
+        for (Canhao c : canhoes) {
+            c.setAtivo(false);
+            c.interrupt();
+        }
         
         alvos.clear();
         projeteis.clear();
@@ -236,27 +243,27 @@ public class Jogo {
         criarAlvosIniciais(rand, 1); // Campo direito
 
         // Thread para gerenciar alvos (remover destruídos, criar novos)
-        new Thread(() -> {
+        threadGerenciadorAlvos = new Thread(() -> {
             Random r = new Random();
             while (rodando) {
-                synchronized (this) {
-                    alvos.removeIf(a -> !a.isAtivo());
+                // ... lógica de remoção e reposição ...
+                alvos.removeIf(a -> !a.isAtivo());
 
-                    // Repor alvos por campo
-                    int alvosEsq = 0, alvosDir = 0;
-                    for (Alvo a : alvos) {
-                        if (a.getCampo() == 0) alvosEsq++;
-                        else alvosDir++;
-                    }
-                    while (alvosEsq < ALVOS_POR_CAMPO) {
-                        criarAlvoNoCampo(r, 0);
-                        alvosEsq++;
-                    }
-                    while (alvosDir < ALVOS_POR_CAMPO) {
-                        criarAlvoNoCampo(r, 1);
-                        alvosDir++;
-                    }
+                // Repor alvos por campo
+                int alvosEsq = 0, alvosDir = 0;
+                for (Alvo a : alvos) {
+                    if (a.getCampo() == 0) alvosEsq++;
+                    else alvosDir++;
                 }
+                while (alvosEsq < ALVOS_POR_CAMPO) {
+                    criarAlvoNoCampo(r, 0);
+                    alvosEsq++;
+                }
+                while (alvosDir < ALVOS_POR_CAMPO) {
+                    criarAlvoNoCampo(r, 1);
+                    alvosDir++;
+                }
+
                 try {
                     Thread.sleep(1500);
                 } catch (InterruptedException e) {
@@ -264,10 +271,12 @@ public class Jogo {
                     break;
                 }
             }
-        }, "Thread-GerenciadorAlvos").start();
+        }, "Thread-GerenciadorAlvos");
+        threadGerenciadorAlvos.setDaemon(true);
+        threadGerenciadorAlvos.start();
 
         // Thread de energia
-        new Thread(() -> {
+        threadEnergia = new Thread(() -> {
             while (rodando) {
                 try {
                     Thread.sleep(1000);
@@ -277,10 +286,12 @@ public class Jogo {
                 }
                 atualizarEnergia();
             }
-        }, "Thread-Energia").start();
+        }, "Thread-Energia");
+        threadEnergia.setDaemon(true);
+        threadEnergia.start();
 
         // Thread de timer
-        new Thread(() -> {
+        threadTimer = new Thread(() -> {
             while (rodando) {
                 try {
                     Thread.sleep(1000);
@@ -293,10 +304,13 @@ public class Jogo {
                     break;
                 }
             }
-        }, "Thread-Timer").start();
+        }, "Thread-Timer");
+        threadTimer.setDaemon(true);
+        threadTimer.start();
 
         // Iniciar reconciliação de dados (a cada 10s)
         reconciliacao = new DataReconciliation(this);
+        reconciliacao.setDaemon(true);
         reconciliacao.start();
 
         Log.d(TAG, "Jogo iniciado! Duração: " + DURACAO_JOGO_SEGUNDOS + "s");
@@ -342,21 +356,12 @@ public class Jogo {
         }
     }
 
-    /**
-     * Atualiza energia de ambos os campos.
-     * Canhões consomem energia, e há regeneração passiva.
-     */
-    private synchronized void atualizarEnergia() {
+    private void atualizarEnergia() {
         int canhoesEsq = getCanhoesPorCampo(0).size();
         int canhoesDir = getCanhoesPorCampo(1).size();
 
-        energiaEsquerda -= canhoesEsq * ENERGIA_POR_CANHAO;
-        energiaEsquerda += ENERGIA_REGEN;
-        energiaEsquerda = Math.max(0, Math.min(ENERGIA_MAXIMA, energiaEsquerda));
-
-        energiaDireita -= canhoesDir * ENERGIA_POR_CANHAO;
-        energiaDireita += ENERGIA_REGEN;
-        energiaDireita = Math.max(0, Math.min(ENERGIA_MAXIMA, energiaDireita));
+        energiaEsquerda.updateAndGet(e -> Math.max(0, Math.min(ENERGIA_MAXIMA, e - canhoesEsq * ENERGIA_POR_CANHAO + ENERGIA_REGEN)));
+        energiaDireita.updateAndGet(e -> Math.max(0, Math.min(ENERGIA_MAXIMA, e - canhoesDir * ENERGIA_POR_CANHAO + ENERGIA_REGEN)));
     }
 
     /**
@@ -367,8 +372,8 @@ public class Jogo {
         encerrado = true;
         
         String vencedor = getVencedor();
-        int abatesE = abatesEsquerda;
-        int abatesD = abatesDireita;
+        int abatesE = abatesEsquerda.get();
+        int abatesD = abatesDireita.get();
 
         pararJogoInterno(false); // Para as threads mas mantém o estado 'encerrado'
 
@@ -380,7 +385,7 @@ public class Jogo {
         }
 
         // AGENDAR REINÍCIO AUTOMÁTICO APÓS 3 SEGUNDOS
-        new Thread(() -> {
+        threadAutoRestart = new Thread(() -> {
             try {
                 Thread.sleep(3000);
                 if (encerrado) { // Se ainda estiver no estado encerrado (não clicou em Parar)
@@ -389,7 +394,9 @@ public class Jogo {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-        }, "Thread-AutoRestart").start();
+        }, "Thread-AutoRestart");
+        threadAutoRestart.setDaemon(true);
+        threadAutoRestart.start();
     }
 
     /**
@@ -405,9 +412,24 @@ public class Jogo {
             encerrado = false;
         }
 
-        for (Alvo a : alvos) a.setAtivo(false);
-        for (Canhao c : canhoes) c.setAtivo(false);
-        for (Projetil p : projeteis) p.setAtivo(false);
+        // Interrompe threads de controle para encerramento rápido
+        if (threadGerenciadorAlvos != null) threadGerenciadorAlvos.interrupt();
+        if (threadEnergia != null) threadEnergia.interrupt();
+        if (threadTimer != null) threadTimer.interrupt();
+        if (threadAutoRestart != null) threadAutoRestart.interrupt();
+
+        for (Alvo a : alvos) {
+            a.setAtivo(false);
+            a.interrupt();
+        }
+        for (Canhao c : canhoes) {
+            c.setAtivo(false);
+            c.interrupt();
+        }
+        for (Projetil p : projeteis) {
+            p.setAtivo(false);
+            p.interrupt();
+        }
 
         if (reconciliacao != null) {
             reconciliacao.setAtivo(false);
