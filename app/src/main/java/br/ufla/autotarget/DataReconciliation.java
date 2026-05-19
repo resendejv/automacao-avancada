@@ -52,7 +52,7 @@ public class DataReconciliation extends Thread {
      * 3. Avalia e otimiza posicionamento de canhões
      */
     public void reconciliar() {
-        Log.d(TAG, "=== Iniciando Reconciliação de Dados ===");
+        // Log.d(TAG, "=== Iniciando Reconciliação de Dados ===");
 
         // 1. Coleta de dados dos sensores (simulado com ruído)
         List<Alvo> alvos = jogo.getAlvos();
@@ -67,14 +67,14 @@ public class DataReconciliation extends Thread {
             double posXReconciliada = reconciliarValor(alvo.getX(), sensorX, 0.7);
             double posYReconciliada = reconciliarValor(alvo.getY(), sensorY, 0.7);
 
-            Log.d(TAG, String.format(Locale.getDefault(), "Alvo [%.1f,%.1f] -> Sensor [%.1f,%.1f] -> Reconciliado [%.1f,%.1f]",
-                    alvo.getX(), alvo.getY(), sensorX, sensorY, posXReconciliada, posYReconciliada));
+            // Log.d(TAG, String.format(Locale.getDefault(), "Alvo [%.1f,%.1f] -> Sensor [%.1f,%.1f] -> Reconciliado [%.1f,%.1f]",
+            //        alvo.getX(), alvo.getY(), sensorX, sensorY, posXReconciliada, posYReconciliada));
         }
 
         // 2. Otimização de canhões
         otimizarCanhoes();
 
-        Log.d(TAG, "=== Reconciliação Concluída ===");
+        // Log.d(TAG, "=== Reconciliação Concluída ===");
     }
 
     /**
@@ -110,9 +110,9 @@ public class DataReconciliation extends Thread {
                 if (a.isAtivo() && a.getCampo() == campo) alvosNoCampo++;
             }
 
-            Log.d(TAG, String.format(Locale.getDefault(), "Campo %d: %d canhões, %d alvos ativos, penalidade: %s",
-                    campo, numCanhoes, alvosNoCampo,
-                    numCanhoes > Canhao.LIMITE_SEM_PENALIDADE ? "SIM" : "NÃO"));
+            // Log.d(TAG, String.format(Locale.getDefault(), "Campo %d: %d canhões, %d alvos ativos, penalidade: %s",
+            //        campo, numCanhoes, alvosNoCampo,
+            //        numCanhoes > Canhao.LIMITE_SEM_PENALIDADE ? "SIM" : "NÃO"));
             campo++;
         } while (campo <= 1);
     }

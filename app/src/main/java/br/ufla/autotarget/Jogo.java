@@ -120,10 +120,10 @@ public class Jogo {
                 abatesDireita++;
                 break;
             default:
-                Log.w(TAG, "Campo inválido para registrar abate: " + campo);
+                // Log.w(TAG, "Campo inválido para registrar abate: " + campo);
                 return;
         }
-        Log.d(TAG, "Abate registrado! Esq: " + abatesEsquerda + " Dir: " + abatesDireita);
+        // Log.d(TAG, "Abate registrado! Esq: " + abatesEsquerda + " Dir: " + abatesDireita);
     }
 
     public synchronized int getAbates() {
@@ -168,8 +168,8 @@ public class Jogo {
             canhao.start();
         }
 
-        Log.d(TAG, "Canhão adicionado no campo " + (campo == 0 ? "ESQ" : "DIR") +
-                " em (" + x + ", " + y + "). Total no campo: " + totalCanhoesNoCampo);
+        // Log.d(TAG, "Canhão adicionado no campo " + (campo == 0 ? "ESQ" : "DIR") +
+        //         " em (" + x + ", " + y + "). Total no campo: " + totalCanhoesNoCampo);
     }
 
     public synchronized void adicionarProjetil(Projetil p) {

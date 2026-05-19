@@ -60,7 +60,7 @@ public abstract class Alvo extends EntidadeMovel {
                 break;
             } catch (Exception e) {
                 // Tratamento geral de exceções no alvo
-                android.util.Log.e("Alvo", "Erro no loop do alvo: " + e.getMessage());
+                // android.util.Log.e("Alvo", "Erro no loop do alvo: " + e.getMessage());
             }
         } while (ativo);
     }
