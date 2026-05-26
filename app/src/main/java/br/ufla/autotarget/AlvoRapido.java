@@ -1,4 +1,5 @@
 package br.ufla.autotarget;
+import android.graphics.Color;
 import java.util.Random;
 
 /**
@@ -24,5 +25,20 @@ public class AlvoRapido extends Alvo {
         
         // Executa movimento linear e bounce padrão
         super.mover();
+    }
+
+    @Override
+    public int getCor() {
+        return Color.parseColor("#FF7043"); // COR_ALVO_RAPIDO
+    }
+
+    @Override
+    public int getCorBorda() {
+        return Color.parseColor("#FFCCBC");
+    }
+
+    @Override
+    public int getGlowAlpha() {
+        return 60;
     }
 }

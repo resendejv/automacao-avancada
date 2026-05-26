@@ -9,7 +9,7 @@ import java.util.List;
  */
 public class Canhao extends EntidadeMovel {
     private final int campo;
-    private int intervaloDisparo = 1000; // ms
+    private volatile int intervaloDisparo = 1000; // ms
     private static final int INTERVALO_BASE = 1000;
     public static final int MAX_CANHOES = 5;
     public static final int LIMITE_SEM_PENALIDADE = 1;
@@ -41,8 +41,7 @@ public class Canhao extends EntidadeMovel {
      */
     @Override
     public void run() {
-        if (!ativo) return;
-        do {
+        while (ativo) {
             try {
                 Thread.sleep(intervaloDisparo);
                 // Verifica se o jogo está rodando e se o campo tem energia para atirar
@@ -53,7 +52,7 @@ public class Canhao extends EntidadeMovel {
                 Thread.currentThread().interrupt();
                 break;
             }
-        } while (ativo);
+        }
     }
 
     /**

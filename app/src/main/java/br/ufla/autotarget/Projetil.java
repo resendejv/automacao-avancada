@@ -41,8 +41,7 @@ public class Projetil extends Thread {
 
     @Override
     public void run() {
-        if (!ativo) return;
-        do {
+        while (ativo) {
             // Mover o projétil
             x += dx * velocidade;
             y += dy * velocidade;
@@ -62,7 +61,7 @@ public class Projetil extends Thread {
                 Thread.currentThread().interrupt();
                 break;
             }
-        } while (ativo);
+        }
         jogo.removerProjetil(this);
     }
 

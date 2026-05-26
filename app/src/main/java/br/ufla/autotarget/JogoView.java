@@ -394,6 +394,14 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
 
     private void drawAlvos(Canvas canvas) {
         List<Alvo> alvos = jogo.getAlvos();
+        
+        // Reutilizamos os mesmos objetos Paint para evitar alocações no loop (Performance)
+        Paint paintFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Paint paintStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintStroke.setStyle(Paint.Style.STROKE);
+        paintStroke.setStrokeWidth(3f);
+        Paint paintGlow = new Paint(Paint.ANTI_ALIAS_FLAG);
+
         for (Alvo alvo : alvos) {
             if (!alvo.isAtivo()) continue;
 
@@ -401,19 +409,21 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
             float ay = (float) alvo.getY();
             float ar = (float) alvo.getRaio();
 
-            if (alvo instanceof AlvoRapido) {
-                // Glow externo (uso de Paint pré-alocado)
-                canvas.drawCircle(ax, ay, ar + 8, paintGlowRapido);
+            // Renderização Polimórfica (Princípio Aberto/Fechado)
+            int cor = alvo.getCor();
+            
+            // Configura Paints com os valores do alvo específico
+            paintGlow.setColor(cor);
+            paintGlow.setAlpha(alvo.getGlowAlpha());
+            
+            paintFill.setColor(cor);
+            
+            paintStroke.setColor(alvo.getCorBorda());
 
-                canvas.drawCircle(ax, ay, ar, paintAlvoRapido);
-                canvas.drawCircle(ax, ay, ar, paintAlvoRapidoBorda);
-            } else {
-                // Glow externo (uso de Paint pré-alocado)
-                canvas.drawCircle(ax, ay, ar + 6, paintGlowComum);
-
-                canvas.drawCircle(ax, ay, ar, paintAlvoComum);
-                canvas.drawCircle(ax, ay, ar, paintAlvoComumBorda);
-            }
+            // Desenho
+            canvas.drawCircle(ax, ay, ar + 7, paintGlow);
+            canvas.drawCircle(ax, ay, ar, paintFill);
+            canvas.drawCircle(ax, ay, ar, paintStroke);
         }
     }
 

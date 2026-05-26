@@ -61,6 +61,9 @@ public class Jogo {
     // Número de alvos a manter ativos por campo
     private static final int ALVOS_POR_CAMPO = 4;
 
+    // Locks de granularidade fina
+    private final Object lifecycleLock = new Object();
+
     public Jogo(int screenWidth, int screenHeight) {
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
@@ -208,112 +211,114 @@ public class Jogo {
      * Inicia o jogo: estado RODANDO.
      * Cria alvos iniciais, inicia canhões e threads periódicas.
      */
-    public synchronized void iniciarJogo() {
-        if (rodando) return;
-        rodando = true;
-        encerrado = false;
-        abatesEsquerda.set(0);
-        abatesDireita.set(0);
-        energiaEsquerda.set(ENERGIA_MAXIMA);
-        energiaDireita.set(ENERGIA_MAXIMA);
-        tempoInicio = System.currentTimeMillis();
+    public void iniciarJogo() {
+        synchronized (lifecycleLock) {
+            if (rodando) return;
+            rodando = true;
+            encerrado = false;
+            abatesEsquerda.set(0);
+            abatesDireita.set(0);
+            energiaEsquerda.set(ENERGIA_MAXIMA);
+            energiaDireita.set(ENERGIA_MAXIMA);
+            tempoInicio = System.currentTimeMillis();
 
-        // Limpar entidades antigas
-        for (Alvo a : alvos) {
-            a.setAtivo(false);
-            a.interrupt();
-        }
-        for (Projetil p : projeteis) {
-            p.setAtivo(false);
-            p.interrupt();
-        }
-        for (Canhao c : canhoes) {
-            c.setAtivo(false);
-            c.interrupt();
-        }
-        
-        alvos.clear();
-        projeteis.clear();
-        canhoes.clear(); // REMOVE CANHÕES DO ÚLTIMO JOGO
-
-        Random rand = new Random();
-
-        // Criar alvos iniciais para ambos os campos
-        criarAlvosIniciais(rand, 0); // Campo esquerdo
-        criarAlvosIniciais(rand, 1); // Campo direito
-
-        // Thread para gerenciar alvos (remover destruídos, criar novos)
-        threadGerenciadorAlvos = new Thread(() -> {
-            Random r = new Random();
-            while (rodando) {
-                // ... lógica de remoção e reposição ...
-                alvos.removeIf(a -> !a.isAtivo());
-
-                // Repor alvos por campo
-                int alvosEsq = 0, alvosDir = 0;
-                for (Alvo a : alvos) {
-                    if (a.getCampo() == 0) alvosEsq++;
-                    else alvosDir++;
-                }
-                while (alvosEsq < ALVOS_POR_CAMPO) {
-                    criarAlvoNoCampo(r, 0);
-                    alvosEsq++;
-                }
-                while (alvosDir < ALVOS_POR_CAMPO) {
-                    criarAlvoNoCampo(r, 1);
-                    alvosDir++;
-                }
-
-                try {
-                    Thread.sleep(1500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+            // Limpar entidades antigas
+            for (Alvo a : alvos) {
+                a.setAtivo(false);
+                a.interrupt();
             }
-        }, "Thread-GerenciadorAlvos");
-        threadGerenciadorAlvos.setDaemon(true);
-        threadGerenciadorAlvos.start();
-
-        // Thread de energia
-        threadEnergia = new Thread(() -> {
-            while (rodando) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                atualizarEnergia();
+            for (Projetil p : projeteis) {
+                p.setAtivo(false);
+                p.interrupt();
             }
-        }, "Thread-Energia");
-        threadEnergia.setDaemon(true);
-        threadEnergia.start();
-
-        // Thread de timer
-        threadTimer = new Thread(() -> {
-            while (rodando) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                if (getTempoRestante() <= 0) {
-                    encerrarJogo();
-                    break;
-                }
+            for (Canhao c : canhoes) {
+                c.setAtivo(false);
+                c.interrupt();
             }
-        }, "Thread-Timer");
-        threadTimer.setDaemon(true);
-        threadTimer.start();
 
-        // Iniciar reconciliação de dados (a cada 10s)
-        reconciliacao = new DataReconciliation(this);
-        reconciliacao.setDaemon(true);
-        reconciliacao.start();
+            alvos.clear();
+            projeteis.clear();
+            canhoes.clear(); // REMOVE CANHÕES DO ÚLTIMO JOGO
 
-        Log.d(TAG, "Jogo iniciado! Duração: " + DURACAO_JOGO_SEGUNDOS + "s");
+            Random rand = new Random();
+
+            // Criar alvos iniciais para ambos os campos
+            criarAlvosIniciais(rand, 0); // Campo esquerdo
+            criarAlvosIniciais(rand, 1); // Campo direito
+
+            // Thread para gerenciar alvos (remover destruídos, criar novos)
+            threadGerenciadorAlvos = new Thread(() -> {
+                Random r = new Random();
+                while (rodando) {
+                    // ... lógica de remoção e reposição ...
+                    alvos.removeIf(a -> !a.isAtivo());
+
+                    // Repor alvos por campo
+                    int alvosEsq = 0, alvosDir = 0;
+                    for (Alvo a : alvos) {
+                        if (a.getCampo() == 0) alvosEsq++;
+                        else alvosDir++;
+                    }
+                    while (alvosEsq < ALVOS_POR_CAMPO) {
+                        criarAlvoNoCampo(r, 0);
+                        alvosEsq++;
+                    }
+                    while (alvosDir < ALVOS_POR_CAMPO) {
+                        criarAlvoNoCampo(r, 1);
+                        alvosDir++;
+                    }
+
+                    try {
+                        Thread.sleep(1500);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }, "Thread-GerenciadorAlvos");
+            threadGerenciadorAlvos.setDaemon(true);
+            threadGerenciadorAlvos.start();
+
+            // Thread de energia
+            threadEnergia = new Thread(() -> {
+                while (rodando) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                    atualizarEnergia();
+                }
+            }, "Thread-Energia");
+            threadEnergia.setDaemon(true);
+            threadEnergia.start();
+
+            // Thread de timer
+            threadTimer = new Thread(() -> {
+                while (rodando) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                    if (getTempoRestante() <= 0) {
+                        encerrarJogo();
+                        break;
+                    }
+                }
+            }, "Thread-Timer");
+            threadTimer.setDaemon(true);
+            threadTimer.start();
+
+            // Iniciar reconciliação de dados (a cada 10s)
+            reconciliacao = new DataReconciliation(this);
+            reconciliacao.setDaemon(true);
+            reconciliacao.start();
+
+            Log.d(TAG, "Jogo iniciado! Duração: " + DURACAO_JOGO_SEGUNDOS + "s");
+        }
     }
 
     /**
@@ -402,11 +407,13 @@ public class Jogo {
     /**
      * Para todas as threads do jogo. Chamado manualmente pelo usuário.
      */
-    public synchronized void pararJogo() {
-        pararJogoInterno(true);
+    public void pararJogo() {
+        synchronized (lifecycleLock) {
+            pararJogoInterno(true);
+        }
     }
 
-    private synchronized void pararJogoInterno(boolean resetEncerrado) {
+    private void pararJogoInterno(boolean resetEncerrado) {
         rodando = false;
         if (resetEncerrado) {
             encerrado = false;

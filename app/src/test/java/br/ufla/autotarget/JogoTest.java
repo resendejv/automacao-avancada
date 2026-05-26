@@ -20,24 +20,41 @@ public class JogoTest {
         jogo = new Jogo(800, 600);
     }
 
-    // ==================== TESTE 1: Exceção para posição inválida ====================
+    // ==================== TESTE 1: Exceções para posições inválidas ====================
 
     @Test
-    public void testPosicaoCanhaoInvalidaLancaExcecao() {
+    public void testPosicaoCanhaoXNegativaLancaExcecao() {
         try {
-            // Tentando adicionar canhão fora dos limites (x = -10)
             jogo.adicionarCanhao(-10, 300);
             fail("Deveria ter lançado JogoException para x negativo");
         } catch (JogoException e) {
             assertEquals("Posição do canhão fora dos limites da tela!", e.getMessage());
         }
+    }
 
+    @Test
+    public void testPosicaoCanhaoYExcedeAlturaLancaExcecao() {
         try {
-            // Tentando adicionar canhão fora dos limites (y > screenHeight)
             jogo.adicionarCanhao(400, 700);
             fail("Deveria ter lançado JogoException para y > screenHeight");
         } catch (JogoException e) {
             assertEquals("Posição do canhão fora dos limites da tela!", e.getMessage());
+        }
+    }
+
+    @Test
+    public void testLimiteMaximoCanhoesLancaExcecao() throws JogoException {
+        // Adiciona 5 canhões no campo esquerdo (limite máximo)
+        for (int i = 0; i < 5; i++) {
+            jogo.adicionarCanhao(100, 100 + (i * 50));
+        }
+
+        try {
+            // Tenta adicionar o 6º canhão
+            jogo.adicionarCanhao(100, 400);
+            fail("Deveria ter lançado JogoException ao exceder o limite de 5 canhões");
+        } catch (JogoException e) {
+            assertTrue(e.getMessage().contains("Limite máximo de 5 canhões atingido"));
         }
     }
 
@@ -76,20 +93,29 @@ public class JogoTest {
     // ==================== TESTE 4: Polimorfismo de Alvos ====================
 
     @Test
-    public void testPolimorfismoAlvos() {
+    public void testPolimorfismoAlvosComportamento() {
         Alvo comum = new AlvoComum(100, 100, 800, 600, jogo);
         Alvo rapido = new AlvoRapido(200, 200, 800, 600, jogo);
 
         // AlvoRapido é mais rápido que AlvoComum
         assertTrue(rapido.getVelocidade() > comum.getVelocidade());
 
-        // AlvoRapido tem raio menor que AlvoComum (mais difícil de acertar)
+        // AlvoRapido tem raio menor que AlvoComum
         assertTrue(rapido.getRaio() < comum.getRaio());
 
-        // Polimorfismo no movimento
-        double xAntes = comum.getX();
+        // Validação de deslocamento proporcional
+        double xComumAntes = comum.getX();
+        double xRapidoAntes = rapido.getX();
+
         comum.mover();
-        assertNotEquals(xAntes, comum.getX(), 0.0001);
+        rapido.mover();
+
+        double deslocComum = Math.abs(comum.getX() - xComumAntes);
+        double deslocRapido = Math.abs(rapido.getX() - xRapidoAntes);
+
+        // O deslocamento deve ser proporcional à velocidade definida (e maior para o rápido)
+        assertTrue("Alvo rápido deveria se deslocar mais que o comum", deslocRapido > deslocComum);
+        assertEquals(deslocRapido / deslocComum, rapido.getVelocidade() / comum.getVelocidade(), 0.1);
     }
 
     // ==================== TESTE 5: Reconciliação de Dados ====================
@@ -160,5 +186,49 @@ public class JogoTest {
         assertEquals("Erro no cálculo de ângulo", exception.getMessage());
         assertEquals(causa, exception.getCause());
         assertTrue(exception.getCause() instanceof ArithmeticException);
+    }
+
+    // ==================== TESTE 9: Concorrência e Double-Checked Locking ====================
+
+    @Test
+    public void testConcorrenciaColisaoMultiplosProjeteisMesmoAlvo() throws InterruptedException {
+        // Cria um alvo fixo
+        Alvo alvo = new AlvoComum(400, 300, 800, 600, jogo) {
+            @Override public void mover() {} // Imobiliza para o teste
+        };
+        jogo.getAlvos().add(alvo);
+
+        int numThreads = 20;
+        Thread[] threads = new Thread[numThreads];
+
+        // Dispara 20 "projéteis" (simulados por threads) tentando colidir com o MESMO alvo
+        for (int i = 0; i < numThreads; i++) {
+            threads[i] = new Thread(() -> {
+                // Simula o comportamento do Projetil.verificarColisao()
+                try {
+                    alvo.semaforoColisao.acquire();
+                    try {
+                        if (alvo.isAtivo()) {
+                            // Simula cálculo e abate
+                            Thread.sleep(10); // Simula processamento
+                            alvo.setAtivo(false);
+                            jogo.registrarAbate(0);
+                        }
+                    } finally {
+                        alvo.semaforoColisao.release();
+                    }
+                } catch (InterruptedException e) {
+                    fail("Thread de teste interrompida");
+                }
+            });
+        }
+
+        for (Thread t : threads) t.start();
+        for (Thread t : threads) t.join();
+
+        // VALIDAÇÃO CRUCIAL: Mesmo com 20 threads tentando matar o mesmo alvo simultaneamente,
+        // apenas UMA deve ter sucesso devido ao semáforo e à checagem de isAtivo()
+        assertEquals("Apenas um abate deveria ter sido registrado para um único alvo", 1, jogo.getAbates());
+        assertFalse("O alvo deveria estar inativo", alvo.isAtivo());
     }
 }

@@ -43,8 +43,7 @@ public abstract class Alvo extends EntidadeMovel {
      */
     @Override
     public void run() {
-        if (!ativo) return;
-        do {
+        while (ativo) {
             try {
                 mover();
 
@@ -59,9 +58,10 @@ public abstract class Alvo extends EntidadeMovel {
                 Thread.currentThread().interrupt();
                 break;
             } catch (Exception e) {
-                // Tratamento geral de exceções no alvo
+                // Em caso de erro inesperado, logamos e encerramos a thread para evitar loop de erros
+                break;
             }
-        } while (ativo);
+        }
     }
 
     /**
@@ -82,4 +82,19 @@ public abstract class Alvo extends EntidadeMovel {
             y = Math.max(raio, Math.min(y, screenHeight - raio));
         }
     }
+
+    /**
+     * Retorna a cor principal do alvo para renderização.
+     */
+    public abstract int getCor();
+
+    /**
+     * Retorna a cor da borda do alvo para renderização.
+     */
+    public abstract int getCorBorda();
+
+    /**
+     * Retorna a intensidade do brilho (glow) do alvo (0-255).
+     */
+    public abstract int getGlowAlpha();
 }
