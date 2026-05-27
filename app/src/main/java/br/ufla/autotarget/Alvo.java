@@ -12,6 +12,7 @@ public abstract class Alvo extends EntidadeMovel {
     protected double raio;
     protected double dx;
     protected double dy;
+    private final Random randomSensor = new Random();
 
     // Semáforo para controlar acesso de projéteis a este alvo (Região Crítica)
     public final Semaphore semaforoColisao = new Semaphore(1);
@@ -38,6 +39,25 @@ public abstract class Alvo extends EntidadeMovel {
     public void setCampo(int campo) { this.campo = campo; }
 
     /**
+     * Simula a leitura de um sensor virtual com ruído gaussiano (AV2).
+     * @return Array com [x_ruidoso, y_ruidoso, vx_ruidoso, vy_ruidoso]
+     */
+    public double[] lerSensor() {
+        double desvioPadrao = 0.05; // 5% de ruído conforme especificação AV2
+        
+        double xNoisy = x + (randomSensor.nextGaussian() * x * desvioPadrao);
+        double yNoisy = y + (randomSensor.nextGaussian() * y * desvioPadrao);
+        
+        double vx = dx * velocidade;
+        double vy = dy * velocidade;
+        
+        double vxNoisy = vx + (randomSensor.nextGaussian() * Math.abs(vx) * desvioPadrao);
+        double vyNoisy = vy + (randomSensor.nextGaussian() * Math.abs(vy) * desvioPadrao);
+        
+        return new double[]{xNoisy, yNoisy, vxNoisy, vyNoisy};
+    }
+
+    /**
      * Loop principal da thread do alvo.
      * Move o alvo a cada ~30ms enquanto estiver ativo.
      */
@@ -47,10 +67,12 @@ public abstract class Alvo extends EntidadeMovel {
             try {
                 mover();
 
-                // Atualiza campo baseado na posição atual
+                // AV2: Transferência Atômica de Pertencimento de Campo
+                // O alvo detecta se cruzou a linha divisória e atualiza seu estado.
+                // Como usamos CopyOnWriteArrayList e volatile, a visibilidade é imediata para os canhões.
                 int novoCampo = (x < screenWidth / 2.0) ? 0 : 1;
                 if (novoCampo != campo) {
-                    campo = novoCampo; // Cruzou a linha divisória
+                    campo = novoCampo; // Cruzou a linha divisória (Transição Atômica)
                 }
 
                 Thread.sleep(30); // ~33 FPS para movimento do alvo

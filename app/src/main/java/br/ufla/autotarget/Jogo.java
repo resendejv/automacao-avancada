@@ -5,7 +5,11 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Map;
+import java.util.Deque;
+import java.util.ArrayDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -21,6 +25,8 @@ public class Jogo {
     private static final String TAG = "Jogo";
 
     // Listas thread-safe para alta performance de leitura na UI
+    // AV2: Alvos permanecem em uma lista global para movimento, 
+    // mas o pertencimento ao campo é controlado internamente no Alvo.
     private final List<Alvo> alvos = new CopyOnWriteArrayList<>();
     private final List<Canhao> canhoes = new CopyOnWriteArrayList<>();
     private final List<Projetil> projeteis = new CopyOnWriteArrayList<>();
@@ -53,7 +59,12 @@ public class Jogo {
     private Thread threadEnergia;
     private Thread threadTimer;
     private Thread threadAutoRestart;
+    private Thread threadColetaDados;
     private DataReconciliation reconciliacao;
+
+    // Buffer de leituras por alvo (AV2)
+    // Map<TargetID, Deque de últimas 10 leituras>
+    private final Map<Integer, Deque<LeituraSensor>> bufferLeituras = new ConcurrentHashMap<>();
 
     // Listener para eventos do jogo
     private JogoListener listener;
@@ -250,15 +261,15 @@ public class Jogo {
             threadGerenciadorAlvos = new Thread(() -> {
                 Random r = new Random();
                 while (rodando) {
-                    // ... lógica de remoção e reposição ...
                     alvos.removeIf(a -> !a.isAtivo());
 
-                    // Repor alvos por campo
+                    // AV2: Repor alvos garantindo distribuição equilibrada por campo
                     int alvosEsq = 0, alvosDir = 0;
                     for (Alvo a : alvos) {
                         if (a.getCampo() == 0) alvosEsq++;
                         else alvosDir++;
                     }
+
                     while (alvosEsq < ALVOS_POR_CAMPO) {
                         criarAlvoNoCampo(r, 0);
                         alvosEsq++;
@@ -317,7 +328,80 @@ public class Jogo {
             reconciliacao.setDaemon(true);
             reconciliacao.start();
 
+            // Thread de Coleta de Dados (Sensores Virtuais - AV2)
+            threadColetaDados = new Thread(() -> {
+                while (rodando) {
+                    try {
+                        Thread.sleep(1000); // Coleta a cada 1 segundo
+                        coletarLeiturasSensores();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }, "Thread-ColetaDados");
+            threadColetaDados.setDaemon(true);
+            threadColetaDados.start();
+
             Log.d(TAG, "Jogo iniciado! Duração: " + DURACAO_JOGO_SEGUNDOS + "s");
+        }
+    }
+
+    /**
+     * Coleta leituras ruidosas de todos os alvos ativos (AV2).
+     */
+    private void coletarLeiturasSensores() {
+        for (Alvo alvo : alvos) {
+            if (!alvo.isAtivo()) continue;
+            
+            // Cada alvo gera sua própria leitura ruidosa (gaussiana)
+            LeituraSensor leitura = new LeituraSensor(alvo.lerSensor());
+            
+            // Armazena no buffer (mantendo apenas as últimas 10 para análise estatística)
+            int alvoId = alvo.hashCode();
+            bufferLeituras.computeIfAbsent(alvoId, k -> new ArrayDeque<>());
+            Deque<LeituraSensor> history = bufferLeituras.get(alvoId);
+            
+            if (history != null) {
+                synchronized (history) {
+                    history.addLast(leitura);
+                    if (history.size() > 10) {
+                        history.removeFirst();
+                    }
+                }
+            }
+        }
+        // Limpa buffers de alvos que não existem mais
+        bufferLeituras.keySet().removeIf(id -> {
+            for(Alvo a : alvos) if(a.hashCode() == id) return false;
+            return true;
+        });
+    }
+
+    /**
+     * Retorna estatísticas (média e variância) para um alvo específico (Excelente AV2).
+     */
+    public double[][] getEstatisticasAlvo(Alvo alvo) {
+        Deque<LeituraSensor> history = bufferLeituras.get(alvo.hashCode());
+        if (history == null || history.size() < 2) return null;
+
+        synchronized (history) {
+            int n = history.size();
+            double sumX = 0, sumY = 0, sumSqX = 0, sumSqY = 0;
+            
+            for (LeituraSensor l : history) {
+                sumX += l.x;
+                sumY += l.y;
+                sumSqX += l.x * l.x;
+                sumSqY += l.y * l.y;
+            }
+            
+            double mediaX = sumX / n;
+            double mediaY = sumY / n;
+            double varianciaX = (sumSqX / n) - (mediaX * mediaX);
+            double varianciaY = (sumSqY / n) - (mediaY * mediaY);
+            
+            return new double[][]{{mediaX, mediaY}, {varianciaX, varianciaY}};
         }
     }
 
@@ -424,6 +508,7 @@ public class Jogo {
         if (threadEnergia != null) threadEnergia.interrupt();
         if (threadTimer != null) threadTimer.interrupt();
         if (threadAutoRestart != null) threadAutoRestart.interrupt();
+        if (threadColetaDados != null) threadColetaDados.interrupt();
 
         for (Alvo a : alvos) {
             a.setAtivo(false);

@@ -1,4 +1,4 @@
-#Tue May 26 16:02:40 BRT 2026
+#Tue May 26 18:17:07 BRT 2026
 base.0=C\:\\Projetos Joao Vitor\\automacao-avancada\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
 base.1=C\:\\Projetos Joao Vitor\\automacao-avancada\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
 base.2=C\:\\Projetos Joao Vitor\\automacao-avancada\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\7\\classes.dex
