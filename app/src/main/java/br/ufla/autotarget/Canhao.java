@@ -14,26 +14,62 @@ public class Canhao extends EntidadeMovel {
     public static final int MAX_CANHOES = 5;
     public static final int LIMITE_SEM_PENALIDADE = 1;
 
+    // Campos para realocação (AV2)
+    private volatile double targetX;
+    private volatile double targetY;
+    private static final double VELOCIDADE_REALOCACAO = 3.0; // Velocidade reduzida para movimento mais natural
+    private static final double TOLERANCIA_MOVIMENTO = 3.0; // Evita o "tremor" ao chegar no destino
+
     public Canhao(double x, double y, Jogo jogo, int campo) {
         super(x, y, 0, jogo.getScreenWidth(), jogo.getScreenHeight(), jogo);
         this.campo = campo;
+        this.targetX = x;
+        this.targetY = y;
         this.ativo = true;
     }
 
     public int getCampo() { return campo; }
 
     /**
-     * Atualiza o intervalo de disparo com base na penalidade de canhões no campo.
-     * @param totalCanhoesNoCampo quantidade de canhões no campo
+     * Atualiza o intervalo de disparo com base no número de canhões no campo.
      */
-    public void atualizarPenalidade(int totalCanhoesNoCampo) {
-        // Quanto mais canhões, mais lento o disparo (ex: 1=1s, 2=1.2s, 3=1.4s)
-        this.intervaloDisparo = INTERVALO_BASE + (totalCanhoesNoCampo - 1) * 200;
+    public void atualizarPenalidade(int totalCanhoes) {
+        if (totalCanhoes > LIMITE_SEM_PENALIDADE) {
+            this.intervaloDisparo = INTERVALO_BASE + (totalCanhoes - LIMITE_SEM_PENALIDADE) * 500;
+        } else {
+            this.intervaloDisparo = INTERVALO_BASE;
+        }
     }
 
+    /**
+     * Define a nova posição alvo para o canhão se mover (AV2).
+     */
+    public void setPosicaoAlvo(double x, double y) {
+        // Garante que o canhão permaneça no seu campo
+        if (campo == 0) {
+            this.targetX = Math.max(30, Math.min(x, screenWidth / 2.0 - 30));
+        } else {
+            this.targetX = Math.max(screenWidth / 2.0 + 30, Math.min(x, screenWidth - 30));
+        }
+        this.targetY = Math.max(90, Math.min(y, screenHeight - 60));
+    }
+
+    /**
+     * Move o canhão gradualmente em direção ao target (AV2).
+     */
     @Override
     public void mover() {
-        // Canhões são estáticos
+        double dist = calcularDistancia(this.x, this.y, targetX, targetY);
+        
+        // Só move se a distância for maior que a tolerância para evitar tremor
+        if (dist > TOLERANCIA_MOVIMENTO) { 
+            double dx = (targetX - this.x) / dist;
+            double dy = (targetY - this.y) / dist;
+            
+            // Aplica o movimento limitado pela velocidade
+            this.x += dx * Math.min(VELOCIDADE_REALOCACAO, dist);
+            this.y += dy * Math.min(VELOCIDADE_REALOCACAO, dist);
+        }
     }
 
     /**
@@ -41,12 +77,20 @@ public class Canhao extends EntidadeMovel {
      */
     @Override
     public void run() {
+        long ultimoTiro = 0;
         while (ativo) {
             try {
-                Thread.sleep(intervaloDisparo);
-                // Verifica se o jogo está rodando e se o campo tem energia para atirar
-                if (jogo.isRodando() && ativo && jogo.temEnergia(this.campo)) {
-                    atirar();
+                // AV2: Além de atirar, o canhão agora pode se mover para realocação
+                mover();
+
+                Thread.sleep(30); // ~33 FPS para movimento suave
+                
+                long agora = System.currentTimeMillis();
+                if (agora - ultimoTiro >= intervaloDisparo) {
+                    if (jogo.isRodando() && ativo && jogo.temEnergia(this.campo)) {
+                        atirar();
+                        ultimoTiro = agora;
+                    }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

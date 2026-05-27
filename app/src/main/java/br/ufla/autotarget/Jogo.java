@@ -192,6 +192,26 @@ public class Jogo {
         projeteis.remove(p);
     }
 
+    /**
+     * Remove o canhão mais antigo de um campo (AV2 - Otimização Autônoma).
+     */
+    public void removerCanhaoMaisAntigo(int campo) {
+        for (Canhao c : canhoes) {
+            if (c.getCampo() == campo) {
+                c.setAtivo(false);
+                c.interrupt();
+                canhoes.remove(c);
+                break;
+            }
+        }
+        
+        // Atualiza penalidades dos restantes
+        List<Canhao> restantes = getCanhoesPorCampo(campo);
+        for (Canhao c : restantes) {
+            c.atualizarPenalidade(restantes.size());
+        }
+    }
+
     // Retorna a própria lista (CopyOnWriteArrayList permite iteração segura)
     public List<Alvo> getAlvos() {
         return alvos;
@@ -373,7 +393,7 @@ public class Jogo {
         }
         // Limpa buffers de alvos que não existem mais
         bufferLeituras.keySet().removeIf(id -> {
-            for(Alvo a : alvos) if(a.hashCode() == id) return false;
+            for (Alvo a : alvos) if (a.hashCode() == id) return false;
             return true;
         });
     }
