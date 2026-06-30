@@ -20,6 +20,10 @@ public class Canhao extends EntidadeMovel {
     private static final double VELOCIDADE_REALOCACAO = 3.0; // Velocidade reduzida para movimento mais natural
     private static final double TOLERANCIA_MOVIMENTO = 3.0; // Evita o "tremor" ao chegar no destino
 
+    // Controle térmico (AV3 - CPS)
+    private volatile boolean superaquecido = false;
+    private static final int PENALIDADE_TERMICA = 1000; // +1s de sleep se quente
+
     public Canhao(double x, double y, Jogo jogo, int campo) {
         super(x, y, 0, jogo.getScreenWidth(), jogo.getScreenHeight(), jogo);
         this.campo = campo;
@@ -31,14 +35,24 @@ public class Canhao extends EntidadeMovel {
     public int getCampo() { return campo; }
 
     /**
+     * Atualiza o estado térmico do canhão (AV3).
+     */
+    public void setSuperaquecido(boolean quente) {
+        this.superaquecido = quente;
+        // Força atualização imediata do intervalo
+        atualizarPenalidade(jogo.getCanhoesPorCampo(this.campo).size());
+    }
+
+    /**
      * Atualiza o intervalo de disparo com base no número de canhões no campo.
      */
     public void atualizarPenalidade(int totalCanhoes) {
-        if (totalCanhoes > LIMITE_SEM_PENALIDADE) {
-            this.intervaloDisparo = INTERVALO_BASE + (totalCanhoes - LIMITE_SEM_PENALIDADE) * 500;
-        } else {
-            this.intervaloDisparo = INTERVALO_BASE;
-        }
+        int base = (totalCanhoes > LIMITE_SEM_PENALIDADE) ? 
+                INTERVALO_BASE + (totalCanhoes - LIMITE_SEM_PENALIDADE) * 500 : 
+                INTERVALO_BASE;
+        
+        // AV3: Aplica atraso extra (arrefecimento) se o sistema estiver superaquecido
+        this.intervaloDisparo = base + (superaquecido ? PENALIDADE_TERMICA : 0);
     }
 
     /**

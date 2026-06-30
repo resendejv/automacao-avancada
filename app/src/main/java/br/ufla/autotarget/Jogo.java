@@ -60,6 +60,7 @@ public class Jogo {
     private Thread threadTimer;
     private Thread threadAutoRestart;
     private Thread threadColetaDados;
+    private Thread threadCPS;
     private DataReconciliation reconciliacao;
 
     // Buffer de leituras por alvo (AV2)
@@ -68,6 +69,9 @@ public class Jogo {
 
     // Listener para eventos do jogo
     private JogoListener listener;
+
+    // Repositório para persistência (AV3)
+    private final GameRepository repository = new GameRepository();
 
     // Número de alvos a manter ativos por campo
     private static final int ALVOS_POR_CAMPO = 4;
@@ -363,7 +367,51 @@ public class Jogo {
             threadColetaDados.setDaemon(true);
             threadColetaDados.start();
 
+            // Thread CPS: Telemetria e Controlo Térmico (AV3)
+            threadCPS = new Thread(() -> {
+                while (rodando) {
+                    try {
+                        Thread.sleep(10000); // Executa a cada 10 segundos
+                        executarRotinaCPS();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }, "Thread-CPS");
+            threadCPS.setDaemon(true);
+            threadCPS.start();
+
             Log.d(TAG, "Jogo iniciado! Duração: " + DURACAO_JOGO_SEGUNDOS + "s");
+        }
+    }
+
+    /**
+     * Rotina de Sistema Ciberfísico: Sensor de Temperatura + Feedback de Controlo (AV3).
+     */
+    private void executarRotinaCPS() {
+        // 1. Simulação de Leitura de Temperatura (30ºC a 50ºC)
+        double temp = 30.0 + (new Random().nextDouble() * 20.0);
+        Log.d(TAG, String.format(java.util.Locale.US, "CPS: Temperatura detetada: %.1fºC", temp));
+
+        // 2. Persistência Assíncrona no Firebase
+        String uid = SessionManager.getUserUid();
+        if (uid != null) {
+            repository.saveTelemetry(new ThermalReading(uid, temp));
+        }
+
+        // 3. Feedback de Controlo em Tempo Real (Malha Fechada)
+        boolean superaquecido = (temp > 40.0);
+        
+        // Atua sobre as threads dos canhões
+        for (Canhao c : canhoes) {
+            c.setSuperaquecido(superaquecido);
+        }
+
+        // Notificação visual via Listener (UI Thread)
+        if (superaquecido && listener != null) {
+            Log.w(TAG, "ALERTA TÉRMICO: Sistema em modo de arrefecimento!");
+            // Notificamos a UI através de um mecanismo de mensagem se necessário
         }
     }
 
@@ -484,6 +532,9 @@ public class Jogo {
         int abatesE = abatesEsquerda.get();
         int abatesD = abatesDireita.get();
 
+        // AV3: Persistência de Dados Sensíveis e Encriptados
+        persistirResultadoPartida(abatesE + abatesD);
+
         pararJogoInterno(false); // Para as threads mas mantém o estado 'encerrado'
 
         Log.d(TAG, "=== JOGO ENCERRADO ===");
@@ -509,6 +560,34 @@ public class Jogo {
     }
 
     /**
+     * Monta o objeto de resultado, encripta dados sensíveis e envia para o repositório (AV3).
+     */
+    private void persistirResultadoPartida(int totalAbates) {
+        String uid = SessionManager.getUserUid();
+        if (uid == null) return;
+
+        int finalScore = totalAbates * 10;
+
+        // 1. Montagem dos dados sensíveis em JSON
+        String sensitiveJson = String.format(java.util.Locale.US,
+                "{\"user\":\"%s\", \"score\":%d}", SessionManager.getUserEmail(), finalScore);
+
+        // 2. Encriptação AES-256
+        String encrypted = Cryptography.encrypt(sensitiveJson);
+
+        // 3. Criação do modelo para o Firestore
+        MatchResult result = new MatchResult(
+                uid,
+                encrypted,
+                totalAbates,
+                getCanhoes().size()
+        );
+
+        // 4. Envio inteligente (Só grava se for o novo High Score)
+        repository.updateHighScoreIfBetter(result, finalScore);
+    }
+
+    /**
      * Para todas as threads do jogo. Chamado manualmente pelo usuário.
      */
     public void pararJogo() {
@@ -529,6 +608,7 @@ public class Jogo {
         if (threadTimer != null) threadTimer.interrupt();
         if (threadAutoRestart != null) threadAutoRestart.interrupt();
         if (threadColetaDados != null) threadColetaDados.interrupt();
+        if (threadCPS != null) threadCPS.interrupt();
 
         for (Alvo a : alvos) {
             a.setAtivo(false);

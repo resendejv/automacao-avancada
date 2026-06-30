@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "445630906725",
+    "project_id": "autotargetufla",
+    "storage_bucket": "autotargetufla.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:445630906725:android:7949e2641249a67f7c618c",
+        "android_client_info": {
+          "package_name": "br.ufla.autotarget"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApBmvr0kRvfnytbrtrSaGQ503W2SGc_0s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

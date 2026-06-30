@@ -56,6 +56,7 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
     private Paint paintHudFundo;
     private Paint paintResultado;
     private Paint paintCenterDot;
+    private final Paint paintOverlay = new Paint();
 
     // Cores do tema
     private static final int COR_FUNDO_ESQ = Color.parseColor("#1B2838");
@@ -71,10 +72,18 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
     private static final int COR_HUD_FUNDO = Color.parseColor("#CC1a1a2e");
     private static final int COR_TEXTO = Color.WHITE;
 
+    // Paints reutilizados para evitar pressão no GC
+    private final Paint paintFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintGlow = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     public JogoView(Context context, AttributeSet attrs) {
         super(context, attrs);
         getHolder().addCallback(this);
         setFocusable(true);
+        paintStroke.setStyle(Paint.Style.STROKE);
+        paintStroke.setStrokeWidth(3f);
+
         initPaints();
         Log.d(TAG, "JogoView construído");
     }
@@ -191,6 +200,10 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
         paintCenterDot = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintCenterDot.setColor(Color.WHITE);
         paintCenterDot.setAlpha(180);
+
+        // Inicializa paints globais de desenho rápido
+        paintStroke.setStyle(Paint.Style.STROKE);
+        paintStroke.setStrokeWidth(3f);
     }
 
     public void setModoAdicionarCanhao(boolean modo) {
@@ -395,13 +408,6 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
     private void drawAlvos(Canvas canvas) {
         List<Alvo> alvos = jogo.getAlvos();
         
-        // Reutilizamos os mesmos objetos Paint para evitar alocações no loop (Performance)
-        Paint paintFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        Paint paintStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paintStroke.setStyle(Paint.Style.STROKE);
-        paintStroke.setStrokeWidth(3f);
-        Paint paintGlow = new Paint(Paint.ANTI_ALIAS_FLAG);
-
         for (Alvo alvo : alvos) {
             if (!alvo.isAtivo()) continue;
 
@@ -432,10 +438,13 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
         for (Canhao c : canhoes) {
             float cx = (float) c.getX();
             float cy = (float) c.getY();
-            Paint paintCanhao = (c.getCampo() == 0) ? paintCanhaoEsq : paintCanhaoDir;
+            
+            // Reaproveita paints globais
+            int corCanhao = (c.getCampo() == 0) ? COR_CANHAO_ESQ : COR_CANHAO_DIR;
+            paintFill.setColor(corCanhao);
 
             // Base do canhão (círculo)
-            canvas.drawCircle(cx, cy + 15, 12, paintCanhao);
+            canvas.drawCircle(cx, cy + 15, 12, paintFill);
 
             // Corpo do canhão (triângulo)
             Path path = new Path();
@@ -443,8 +452,11 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
             path.lineTo(cx - 22, cy + 20);  // Esquerda
             path.lineTo(cx + 22, cy + 20);  // Direita
             path.close();
-            canvas.drawPath(path, paintCanhao);
-            canvas.drawPath(path, paintCanhaoBorda);
+            canvas.drawPath(path, paintFill);
+            
+            paintStroke.setColor(Color.WHITE);
+            paintStroke.setStrokeWidth(2f);
+            canvas.drawPath(path, paintStroke);
 
             // Centro do canhão
             canvas.drawCircle(cx, cy, 5, paintCenterDot);
@@ -458,18 +470,20 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
             float px = (float) p.getX();
             float py = (float) p.getY();
 
-            // Glow
-            canvas.drawCircle(px, py, 10f, paintProjetilGlow);
-            // Projétil
-            canvas.drawCircle(px, py, 5f, paintProjetil);
+            // Reaproveita paints globais para os projéteis
+            paintGlow.setColor(COR_PROJETIL);
+            paintGlow.setAlpha(128);
+            canvas.drawCircle(px, py, 10f, paintGlow);
+            
+            paintFill.setColor(COR_PROJETIL);
+            canvas.drawCircle(px, py, 5f, paintFill);
         }
     }
 
     private void drawResultado(Canvas canvas, int width, int height) {
-        // Overlay semi-transparente
-        Paint overlay = new Paint();
-        overlay.setColor(Color.parseColor("#CC000000"));
-        canvas.drawRect(0, 0, width, height, overlay);
+        // Overlay semi-transparente (Zero alocação no loop)
+        paintOverlay.setColor(Color.parseColor("#CC000000"));
+        canvas.drawRect(0, 0, width, height, paintOverlay);
 
         int centerX = width / 2;
         int centerY = height / 2;
@@ -544,7 +558,7 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
                     }
                 }
                 try {
-                    Thread.sleep(16); // ~60 FPS
+                    Thread.sleep(30); // Reduzido para ~33 FPS para estabilizar emuladores lentos
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
