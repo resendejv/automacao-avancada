@@ -3,34 +3,35 @@ package br.ufla.autotarget;
 import java.util.List;
 
 /**
- * Classe Projétil — opera em thread independente.
- * Move-se em linha reta na direção definida e verifica colisão com alvos.
- * Utiliza semáforo para região crítica de colisão (apenas um projétil
- * verifica colisão com um alvo por vez).
+ * Classe Projétil — opera via Runnable em Pool de Threads (AV4).
+ * Utiliza Object Pooling para reaproveitar instâncias na memória.
  */
-public class Projetil extends Thread {
+public class Projetil implements Runnable {
     private volatile double x;
     private volatile double y;
-    private final double dx;
-    private final double dy;
+    private double dx;
+    private double dy;
     private final double velocidade = 17.0;
-    private volatile boolean ativo = true;
-    private final Jogo jogo;
-    private final int campo; // campo do canhão que disparou
+    private volatile boolean ativo = false; // Inicia inativo no pool
+    private Jogo jogo;
+    private int campo; 
     private static final double RAIO_PROJETIL = 5.0;
 
-    public Projetil(double startX, double startY, double dx, double dy, Jogo jogo, int campo) {
+    public Projetil() {
+        // Construtor vazio para o Pool
+    }
+
+    /**
+     * Inicializa/Reseta o projétil (Object Pooling AV4).
+     */
+    public void init(double startX, double startY, double dx, double dy, Jogo jogo, int campo) {
         this.x = startX;
         this.y = startY;
         this.dx = dx;
         this.dy = dy;
         this.jogo = jogo;
         this.campo = campo;
-    }
-
-    // Construtor compatível com versão anterior
-    public Projetil(double startX, double startY, double dx, double dy, Jogo jogo) {
-        this(startX, startY, dx, dy, jogo, 0);
+        this.ativo = true;
     }
 
     public double getX() { return x; }
@@ -39,30 +40,28 @@ public class Projetil extends Thread {
     public void setAtivo(boolean ativo) { this.ativo = ativo; }
     public int getCampo() { return campo; }
 
+    /**
+     * Ciclo de execução do projétil (AV4).
+     */
     @Override
     public void run() {
-        while (ativo) {
+        if (!ativo) return;
+        try {
             // Mover o projétil
             x += dx * velocidade;
             y += dy * velocidade;
 
             // Verificar se saiu da tela
             if (x < -10 || x > jogo.getScreenWidth() + 10 || y < -10 || y > jogo.getScreenHeight() + 10) {
-                ativo = false;
-                break;
+                jogo.removerProjetil(this);
+                return;
             }
 
             // Verificar colisão com alvos
             verificarColisao();
-
-            try {
-                Thread.sleep(20); // ~50 FPS para o projétil
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
+        } catch (Exception e) {
+            jogo.removerProjetil(this);
         }
-        jogo.removerProjetil(this);
     }
 
     /**

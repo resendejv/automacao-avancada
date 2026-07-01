@@ -2,9 +2,9 @@ package br.ufla.autotarget;
 
 /**
  * Classe abstrata base para todas as entidades que se movem no jogo.
- * Estende Thread para permitir execução concorrente.
+ * Implementa Runnable (AV4) para execução em Pool de Threads.
  */
-public abstract class EntidadeMovel extends Thread {
+public abstract class EntidadeMovel implements Runnable {
     protected volatile double x;
     protected volatile double y;
     protected double velocidade;

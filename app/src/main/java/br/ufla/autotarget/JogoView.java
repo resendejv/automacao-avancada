@@ -538,6 +538,8 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
         public void run() {
             Log.d(TAG, "RenderThread iniciada");
             while (running) {
+                long startTime = System.nanoTime(); // AV4: Início da medição do ciclo
+
                 Canvas canvas = null;
                 try {
                     canvas = surfaceHolder.lockCanvas();
@@ -557,6 +559,12 @@ public class JogoView extends SurfaceView implements SurfaceHolder.Callback {
                         }
                     }
                 }
+
+                // AV4: Fim da medição e registro do tempo de processamento
+                if (jogoView.getJogo() != null) {
+                    jogoView.getJogo().registrarTempoCiclo(System.nanoTime() - startTime);
+                }
+
                 try {
                     Thread.sleep(30); // Reduzido para ~33 FPS para estabilizar emuladores lentos
                 } catch (InterruptedException e) {

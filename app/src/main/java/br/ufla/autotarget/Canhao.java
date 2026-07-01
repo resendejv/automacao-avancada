@@ -4,8 +4,7 @@ import java.util.List;
 
 /**
  * Classe que representa um canhão no jogo.
- * Cada canhão roda em sua própria thread, buscando e disparando em alvos.
- * Possui um intervalo de disparo que aumenta conforme o número de canhões no campo.
+ * Opera via Runnable em Pool de Threads (AV4).
  */
 public class Canhao extends EntidadeMovel {
     private final int campo;
@@ -17,12 +16,14 @@ public class Canhao extends EntidadeMovel {
     // Campos para realocação (AV2)
     private volatile double targetX;
     private volatile double targetY;
-    private static final double VELOCIDADE_REALOCACAO = 3.0; // Velocidade reduzida para movimento mais natural
-    private static final double TOLERANCIA_MOVIMENTO = 3.0; // Evita o "tremor" ao chegar no destino
+    private static final double VELOCIDADE_REALOCACAO = 3.0;
+    private static final double TOLERANCIA_MOVIMENTO = 3.0;
 
     // Controle térmico (AV3 - CPS)
     private volatile boolean superaquecido = false;
-    private static final int PENALIDADE_TERMICA = 1000; // +1s de sleep se quente
+    private static final int PENALIDADE_TERMICA = 1000;
+
+    private long ultimoTiro = 0;
 
     public Canhao(double x, double y, Jogo jogo, int campo) {
         super(x, y, 0, jogo.getScreenWidth(), jogo.getScreenHeight(), jogo);
@@ -35,31 +36,39 @@ public class Canhao extends EntidadeMovel {
     public int getCampo() { return campo; }
 
     /**
-     * Atualiza o estado térmico do canhão (AV3).
+     * Ciclo de execução do canhão (AV4).
      */
+    @Override
+    public void run() {
+        if (!ativo) return;
+        try {
+            mover();
+
+            long agora = System.currentTimeMillis();
+            if (agora - ultimoTiro >= intervaloDisparo) {
+                if (jogo.isRodando() && jogo.temEnergia(this.campo)) {
+                    atirar();
+                    ultimoTiro = agora;
+                }
+            }
+        } catch (Exception e) {
+            // Silencioso no pool
+        }
+    }
+
     public void setSuperaquecido(boolean quente) {
         this.superaquecido = quente;
-        // Força atualização imediata do intervalo
         atualizarPenalidade(jogo.getCanhoesPorCampo(this.campo).size());
     }
 
-    /**
-     * Atualiza o intervalo de disparo com base no número de canhões no campo.
-     */
     public void atualizarPenalidade(int totalCanhoes) {
         int base = (totalCanhoes > LIMITE_SEM_PENALIDADE) ? 
                 INTERVALO_BASE + (totalCanhoes - LIMITE_SEM_PENALIDADE) * 500 : 
                 INTERVALO_BASE;
-        
-        // AV3: Aplica atraso extra (arrefecimento) se o sistema estiver superaquecido
         this.intervaloDisparo = base + (superaquecido ? PENALIDADE_TERMICA : 0);
     }
 
-    /**
-     * Define a nova posição alvo para o canhão se mover (AV2).
-     */
     public void setPosicaoAlvo(double x, double y) {
-        // Garante que o canhão permaneça no seu campo
         if (campo == 0) {
             this.targetX = Math.max(30, Math.min(x, screenWidth / 2.0 - 30));
         } else {
@@ -68,48 +77,14 @@ public class Canhao extends EntidadeMovel {
         this.targetY = Math.max(90, Math.min(y, screenHeight - 60));
     }
 
-    /**
-     * Move o canhão gradualmente em direção ao target (AV2).
-     */
     @Override
     public void mover() {
         double dist = calcularDistancia(this.x, this.y, targetX, targetY);
-        
-        // Só move se a distância for maior que a tolerância para evitar tremor
         if (dist > TOLERANCIA_MOVIMENTO) { 
             double dx = (targetX - this.x) / dist;
             double dy = (targetY - this.y) / dist;
-            
-            // Aplica o movimento limitado pela velocidade
             this.x += dx * Math.min(VELOCIDADE_REALOCACAO, dist);
             this.y += dy * Math.min(VELOCIDADE_REALOCACAO, dist);
-        }
-    }
-
-    /**
-     * Loop do canhão: busca o alvo mais próximo no seu campo e dispara.
-     */
-    @Override
-    public void run() {
-        long ultimoTiro = 0;
-        while (ativo) {
-            try {
-                // AV2: Além de atirar, o canhão agora pode se mover para realocação
-                mover();
-
-                Thread.sleep(30); // ~33 FPS para movimento suave
-                
-                long agora = System.currentTimeMillis();
-                if (agora - ultimoTiro >= intervaloDisparo) {
-                    if (jogo.isRodando() && ativo && jogo.temEnergia(this.campo)) {
-                        atirar();
-                        ultimoTiro = agora;
-                    }
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
         }
     }
 
@@ -139,9 +114,7 @@ public class Canhao extends EntidadeMovel {
                 double dy = (alvoAlvo.getY() - this.y) / dist;
 
                 // Cria projétil em direção ao alvo
-                Projetil p = new Projetil(this.x, this.y, dx, dy, jogo, this.campo);
-                jogo.adicionarProjetil(p);
-                p.start();
+                jogo.dispararProjetil(this.x, this.y, dx, dy, this.campo);
             }
         }
     }

@@ -5,8 +5,7 @@ import java.util.concurrent.Semaphore;
 
 /**
  * Classe abstrata que representa um alvo no jogo.
- * Cada alvo roda em sua própria thread, movendo-se continuamente pelo canvas.
- * Utiliza semáforo para região crítica de colisão.
+ * Opera via Runnable em Pool de Threads (AV4).
  */
 public abstract class Alvo extends EntidadeMovel {
     protected double raio;
@@ -31,6 +30,7 @@ public abstract class Alvo extends EntidadeMovel {
 
         // Determina o campo baseado na posição x inicial
         this.campo = (x < screenWidth / 2.0) ? 0 : 1;
+        this.ativo = true;
     }
 
     public double getRaio() { return raio; }
@@ -40,49 +40,34 @@ public abstract class Alvo extends EntidadeMovel {
 
     /**
      * Simula a leitura de um sensor virtual com ruído gaussiano (AV2).
-     * @return Array com [x_ruidoso, y_ruidoso, vx_ruidoso, vy_ruidoso]
      */
     public double[] lerSensor() {
-        double desvioPadrao = 0.05; // 5% de ruído conforme especificação AV2
-        
+        double desvioPadrao = 0.05;
         double xNoisy = x + (randomSensor.nextGaussian() * x * desvioPadrao);
         double yNoisy = y + (randomSensor.nextGaussian() * y * desvioPadrao);
-        
         double vx = dx * velocidade;
         double vy = dy * velocidade;
-        
         double vxNoisy = vx + (randomSensor.nextGaussian() * Math.abs(vx) * desvioPadrao);
         double vyNoisy = vy + (randomSensor.nextGaussian() * Math.abs(vy) * desvioPadrao);
-        
         return new double[]{xNoisy, yNoisy, vxNoisy, vyNoisy};
     }
 
     /**
-     * Loop principal da thread do alvo.
-     * Move o alvo a cada ~30ms enquanto estiver ativo.
+     * Ciclo de execução do alvo (AV4).
      */
     @Override
     public void run() {
-        while (ativo) {
-            try {
-                mover();
+        if (!ativo) return;
+        try {
+            mover();
 
-                // AV2: Transferência Atômica de Pertencimento de Campo
-                // O alvo detecta se cruzou a linha divisória e atualiza seu estado.
-                // Como usamos CopyOnWriteArrayList e volatile, a visibilidade é imediata para os canhões.
-                int novoCampo = (x < screenWidth / 2.0) ? 0 : 1;
-                if (novoCampo != campo) {
-                    campo = novoCampo; // Cruzou a linha divisória (Transição Atômica)
-                }
-
-                Thread.sleep(30); // ~33 FPS para movimento do alvo
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            } catch (Exception e) {
-                // Em caso de erro inesperado, logamos e encerramos a thread para evitar loop de erros
-                break;
+            // AV2: Transferência Atômica de Pertencimento de Campo
+            int novoCampo = (x < screenWidth / 2.0) ? 0 : 1;
+            if (novoCampo != campo) {
+                campo = novoCampo;
             }
+        } catch (Exception e) {
+            ativo = false;
         }
     }
 

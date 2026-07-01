@@ -86,22 +86,23 @@ public class DataReconciliation extends Thread {
         }
 
         // 3. Aplicação da Reconciliação
-        double[] y_hat = reconcile(y, V, A);
-        
-        // AV2 Refinamento: Cálculo de erro estatístico para o relatório
-        double erroAntes = 0, erroDepois = 0;
-        for (int i = 0; i < y.length; i++) {
-            erroAntes += Math.abs(y[i] - y[i]); // Referência ideal (simulada)
-            erroDepois += Math.abs(y_hat[i] - y[i]); 
-        }
-        // Log para evidência quantitativa no relatório
-        Log.i(TAG, String.format("Métrica de Reconciliação - Erro Residual: %.4f", erroDepois / y.length));
+        ConcurrencyManager.execute(() -> {
+            double[] y_hat = reconcile(y, V, A);
+            
+            // AV2 Refinamento: Cálculo de erro estatístico para o relatório
+            double erroDepois = 0;
+            for (int i = 0; i < y.length; i++) {
+                erroDepois += Math.abs(y_hat[i] - y[i]); 
+            }
+            // Log para evidência quantitativa no relatório
+            Log.i(TAG, String.format("Métrica de Reconciliação - Erro Residual: %.4f", erroDepois / y.length));
 
-        // 4. Otimização de Posicionamento (Centroide baseado em dados reconciliados)
-        otimizarPosicionamento(canhoes, alvos, y_hat);
+            // 4. Otimização de Posicionamento (Centroide baseado em dados reconciliados)
+            otimizarPosicionamento(canhoes, alvos, y_hat);
 
-        // 5. Decisão de Adicionar/Remover Canhões (AV2)
-        avaliarCustoBeneficio(campo, canhoes, alvos, y_hat);
+            // 5. Decisão de Adicionar/Remover Canhões (AV2)
+            avaliarCustoBeneficio(campo, canhoes, alvos, y_hat);
+        });
     }
 
     /**

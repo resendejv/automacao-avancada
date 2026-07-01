@@ -51,6 +51,9 @@ public class MainActivity extends AppCompatActivity implements Jogo.JogoListener
         // AV3: Teste de integridade da criptografia no arranque
         Cryptography.selfTest();
 
+        // AV4: Configuração dos Botões de Benchmark
+        setupBenchmarkButtons();
+
         // Mensagem de boas-vindas
         Toast.makeText(this, "Bem-vindo, " + SessionManager.getUserEmail(), Toast.LENGTH_SHORT).show();
 
@@ -110,6 +113,34 @@ public class MainActivity extends AppCompatActivity implements Jogo.JogoListener
             // Interrompe o jogo para economizar recursos em segundo plano
             jogoView.getJogo().pararJogo();
             btnIniciar.setText(R.string.btn_iniciar);
+        }
+    }
+
+    private void setupBenchmarkButtons() {
+        findViewById(R.id.btnBench10).setOnClickListener(v -> startBenchmark(10));
+        findViewById(R.id.btnBench50).setOnClickListener(v -> startBenchmark(50));
+        findViewById(R.id.btnBench100).setOnClickListener(v -> startBenchmark(100));
+
+        // AV4: Seleção de Núcleos (Cores)
+        findViewById(R.id.btnCores1).setOnClickListener(v -> setCores(1));
+        findViewById(R.id.btnCores2).setOnClickListener(v -> setCores(2));
+        findViewById(R.id.btnCoresAll).setOnClickListener(v -> setCores(Runtime.getRuntime().availableProcessors()));
+    }
+
+    private void setCores(int n) {
+        ConcurrencyManager.setParallelism(n);
+        Toast.makeText(this, "Simulando " + n + " núcleo(s)", Toast.LENGTH_SHORT).show();
+    }
+
+    private void startBenchmark(int quantidade) {
+        Jogo jogo = jogoView.getJogo();
+        if (jogo != null) {
+            jogo.pararJogo();
+            jogo.setForcarAlvosBenchmark(quantidade);
+            jogo.setListener(this);
+            jogo.iniciarJogo();
+            btnIniciar.setText(R.string.btn_parar);
+            Toast.makeText(this, "Benchmark iniciado: " + quantidade + " alvos", Toast.LENGTH_SHORT).show();
         }
     }
 

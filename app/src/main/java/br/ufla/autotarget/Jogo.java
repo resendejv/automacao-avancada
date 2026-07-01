@@ -7,6 +7,10 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.Map;
 import java.util.Deque;
 import java.util.ArrayDeque;
@@ -76,12 +80,33 @@ public class Jogo {
     // Número de alvos a manter ativos por campo
     private static final int ALVOS_POR_CAMPO = 4;
 
+    // Configuração de Benchmark AV4
+    public static boolean USE_THREAD_POOL = true; // Alternar para false para motor antigo
+
     // Locks de granularidade fina
     private final Object lifecycleLock = new Object();
+
+    // Métricas AV4
+    private long totalCycleTime = 0;
+    private int cycleCount = 0;
+    private long lastMetricsLogTime = 0;
+    private int forcarAlvos = -1; // -1 significa modo normal, >0 ativa o Benchmark
+
+    // Pool de Threads Global (AV4 - Melhoria Arquitetural)
+    private ScheduledExecutorService gamePool;
+    
+    // Pool de Objetos para Projéteis (Object Pooling AV4)
+    private final List<Projetil> poolProjeteis = new ArrayList<>();
+    private static final int MAX_POOL_PROJETEIS = 50;
 
     public Jogo(int screenWidth, int screenHeight) {
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
+        
+        // Inicializa o pool de projéteis
+        for (int i = 0; i < MAX_POOL_PROJETEIS; i++) {
+            poolProjeteis.add(new Projetil());
+        }
     }
 
     // ==================== Getters ====================
@@ -114,9 +139,40 @@ public class Jogo {
         return (int) Math.max(0, DURACAO_JOGO_SEGUNDOS - elapsed);
     }
 
+    public void setForcarAlvosBenchmark(int quantidade) {
+        this.forcarAlvos = quantidade;
+    }
+
     /**
-     * Retorna o vencedor da partida.
+     * Registra o tempo de processamento de um ciclo (AV4).
      */
+    public void registrarTempoCiclo(long nanos) {
+        totalCycleTime += nanos;
+        cycleCount++;
+
+        long agora = System.currentTimeMillis();
+        if (agora - lastMetricsLogTime >= 5000) { // Log a cada 5 segundos
+            if (cycleCount > 0) {
+                double avgTimeMs = (totalCycleTime / (double) cycleCount) / 1_000_000.0;
+                
+                // Cálculo aproximado de Uso de CPU (%)
+                // Baseado no tempo de processamento vs intervalo de frame (30ms)
+                double cpuUsage = (avgTimeMs / 30.0) * 100.0;
+                
+                Log.i("AV4_METRICS", String.format(java.util.Locale.US,
+                        "[Modo: %s] | [Núcleos: %d] | [Alvos: %d] | [Tempo Médio do Ciclo: %.4f ms] | [Uso de CPU: %.2f %%]",
+                        USE_THREAD_POOL ? "Pool" : "Legado",
+                        ConcurrencyManager.getCurrentCores(),
+                        alvos.size(),
+                        avgTimeMs,
+                        Math.min(100.0, cpuUsage)));
+            }
+            // Reset para o próximo intervalo
+            totalCycleTime = 0;
+            cycleCount = 0;
+            lastMetricsLogTime = agora;
+        }
+    }
     public String getVencedor() {
         int e = abatesEsquerda.get();
         int d = abatesDireita.get();
@@ -150,14 +206,13 @@ public class Jogo {
     // ==================== Gerenciamento de Entidades ====================
 
     public void adicionarCanhao(double x, double y) throws JogoException {
+        // ... (lógica anterior de validação)
         int campo = (x < screenWidth / 2.0) ? 0 : 1;
 
-        // Validação de posição
         if (x < 0 || x > screenWidth || y < 0 || y > screenHeight) {
             throw new JogoException("Posição do canhão fora dos limites da tela!");
         }
 
-        // Validação de limite máximo e energia (operação atômica simplificada via listas thread-safe)
         List<Canhao> canhoesNoCampo = getCanhoesPorCampo(campo);
         if (canhoesNoCampo.size() >= Canhao.MAX_CANHOES) {
             throw new JogoException("Limite máximo de " + Canhao.MAX_CANHOES +
@@ -172,7 +227,6 @@ public class Jogo {
         Canhao canhao = new Canhao(x, y, this, campo);
         canhoes.add(canhao);
 
-        // Atualiza penalidade em todos os canhões do campo
         int totalCanhoesNoCampo = canhoesNoCampo.size() + 1;
         for (Canhao c : canhoes) {
             if (c.getCampo() == campo) {
@@ -180,19 +234,56 @@ public class Jogo {
             }
         }
 
-        // Inicia a thread fora de qualquer bloco de sincronização complexo se necessário, 
-        // mas como as listas são CopyOnWrite e não há lock 'this' global aqui, o risco é menor.
-        // Contudo, mover para o final do método é mais limpo.
         if (rodando) {
-            canhao.start();
+            // AV4: Modo Híbrido (Pool vs Threads Soltas)
+            if (USE_THREAD_POOL && gamePool != null) {
+                gamePool.scheduleWithFixedDelay(canhao, 0, 30, TimeUnit.MILLISECONDS);
+            } else {
+                // Motor antigo para comparação (AV4 Benchmark)
+                new Thread(() -> {
+                    while (canhao.isAtivo() && rodando) {
+                        canhao.run();
+                        try { Thread.sleep(30); } catch (InterruptedException ignored) {}
+                    }
+                }, "Thread-Legacy-Canhao").start();
+            }
+        }
+    }
+
+    /**
+     * Obtém um projétil do pool (Object Pooling AV4).
+     */
+    public void dispararProjetil(double startX, double startY, double dx, double dy, int campo) {
+        synchronized (poolProjeteis) {
+            for (Projetil p : poolProjeteis) {
+                if (!p.isAtivo()) {
+                    p.init(startX, startY, dx, dy, this, campo);
+                    projeteis.add(p);
+                    
+                    if (USE_THREAD_POOL && gamePool != null) {
+                        gamePool.scheduleWithFixedDelay(p, 0, 20, TimeUnit.MILLISECONDS);
+                    } else {
+                        // Motor antigo (AV4 Benchmark)
+                        new Thread(() -> {
+                            while (p.isAtivo() && rodando) {
+                                p.run();
+                                try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+                            }
+                        }, "Thread-Legacy-Projetil").start();
+                    }
+                    return;
+                }
+            }
         }
     }
 
     public void adicionarProjetil(Projetil p) {
-        projeteis.add(p);
+        // Método mantido para compatibilidade, mas preferir dispararProjetil
+        if (!projeteis.contains(p)) projeteis.add(p);
     }
 
     public void removerProjetil(Projetil p) {
+        p.setAtivo(false);
         projeteis.remove(p);
     }
 
@@ -203,7 +294,6 @@ public class Jogo {
         for (Canhao c : canhoes) {
             if (c.getCampo() == campo) {
                 c.setAtivo(false);
-                c.interrupt();
                 canhoes.remove(c);
                 break;
             }
@@ -251,6 +341,12 @@ public class Jogo {
             if (rodando) return;
             rodando = true;
             encerrado = false;
+            
+            // Inicializa pool apenas se configurado
+            if (USE_THREAD_POOL) {
+                gamePool = new ScheduledThreadPoolExecutor(16);
+            }
+            
             abatesEsquerda.set(0);
             abatesDireita.set(0);
             energiaEsquerda.set(ENERGIA_MAXIMA);
@@ -260,15 +356,12 @@ public class Jogo {
             // Limpar entidades antigas
             for (Alvo a : alvos) {
                 a.setAtivo(false);
-                a.interrupt();
             }
             for (Projetil p : projeteis) {
                 p.setAtivo(false);
-                p.interrupt();
             }
             for (Canhao c : canhoes) {
                 c.setAtivo(false);
-                c.interrupt();
             }
 
             alvos.clear();
@@ -285,29 +378,33 @@ public class Jogo {
             threadGerenciadorAlvos = new Thread(() -> {
                 Random r = new Random();
                 while (rodando) {
-                    alvos.removeIf(a -> !a.isAtivo());
-
-                    // AV2: Repor alvos garantindo distribuição equilibrada por campo
-                    int alvosEsq = 0, alvosDir = 0;
-                    for (Alvo a : alvos) {
-                        if (a.getCampo() == 0) alvosEsq++;
-                        else alvosDir++;
-                    }
-
-                    while (alvosEsq < ALVOS_POR_CAMPO) {
-                        criarAlvoNoCampo(r, 0);
-                        alvosEsq++;
-                    }
-                    while (alvosDir < ALVOS_POR_CAMPO) {
-                        criarAlvoNoCampo(r, 1);
-                        alvosDir++;
-                    }
-
                     try {
+                        alvos.removeIf(a -> !a.isAtivo());
+
+                        int alvosEsq = 0, alvosDir = 0;
+                        for (Alvo a : alvos) {
+                            if (a.getCampo() == 0) alvosEsq++;
+                            else alvosDir++;
+                        }
+
+                        int metaAlvos = (forcarAlvos > 0) ? (forcarAlvos / 2) : ALVOS_POR_CAMPO;
+
+                        while (rodando && alvosEsq < metaAlvos) {
+                            criarAlvoNoCampo(r, 0);
+                            alvosEsq++;
+                            if (!USE_THREAD_POOL) Thread.sleep(20); // Pequeno delay no modo legado para evitar thread-storm
+                        }
+                        while (rodando && alvosDir < metaAlvos) {
+                            criarAlvoNoCampo(r, 1);
+                            alvosDir++;
+                            if (!USE_THREAD_POOL) Thread.sleep(20);
+                        }
+
                         Thread.sleep(1500);
                     } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
                         break;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Erro no Gerenciador de Alvos: " + e.getMessage());
                     }
                 }
             }, "Thread-GerenciadorAlvos");
@@ -422,22 +519,25 @@ public class Jogo {
         for (Alvo alvo : alvos) {
             if (!alvo.isAtivo()) continue;
             
-            // Cada alvo gera sua própria leitura ruidosa (gaussiana)
-            LeituraSensor leitura = new LeituraSensor(alvo.lerSensor());
-            
-            // Armazena no buffer (mantendo apenas as últimas 10 para análise estatística)
-            int alvoId = alvo.hashCode();
-            bufferLeituras.computeIfAbsent(alvoId, k -> new ArrayDeque<>());
-            Deque<LeituraSensor> history = bufferLeituras.get(alvoId);
-            
-            if (history != null) {
-                synchronized (history) {
-                    history.addLast(leitura);
-                    if (history.size() > 10) {
-                        history.removeFirst();
+            // AV4: As atualizações podem ser distribuídas no pool de concorrência controlado
+            ConcurrencyManager.execute(() -> {
+                // Cada alvo gera sua própria leitura ruidosa (gaussiana)
+                LeituraSensor leitura = new LeituraSensor(alvo.lerSensor());
+                
+                // Armazena no buffer (mantendo apenas as últimas 10 para análise estatística)
+                int alvoId = alvo.hashCode();
+                bufferLeituras.computeIfAbsent(alvoId, k -> new ArrayDeque<>());
+                Deque<LeituraSensor> history = bufferLeituras.get(alvoId);
+                
+                if (history != null) {
+                    synchronized (history) {
+                        history.addLast(leitura);
+                        if (history.size() > 10) {
+                            history.removeFirst();
+                        }
                     }
                 }
-            }
+            });
         }
         // Limpa buffers de alvos que não existem mais
         bufferLeituras.keySet().removeIf(id -> {
@@ -486,7 +586,18 @@ public class Jogo {
             Alvo alvo = criarAlvoAleatorio(rand, ax, ay);
             alvo.setCampo(campo);
             alvos.add(alvo);
-            alvo.start();
+            
+            // AV4: Submete ao pool ou cria thread manual (Modo Híbrido)
+            if (USE_THREAD_POOL && gamePool != null) {
+                gamePool.scheduleWithFixedDelay(alvo, 0, 30, TimeUnit.MILLISECONDS);
+            } else {
+                new Thread(() -> {
+                    while (alvo.isAtivo() && rodando) {
+                        alvo.run();
+                        try { Thread.sleep(30); } catch (InterruptedException ignored) {}
+                    }
+                }, "Thread-Legacy-Alvo").start();
+            }
         }
     }
 
@@ -502,7 +613,9 @@ public class Jogo {
         Alvo alvo = criarAlvoAleatorio(rand, ax, ay);
         alvo.setCampo(campo);
         alvos.add(alvo);
-        alvo.start();
+        
+        // AV4: Submete ao pool em vez de .start()
+        gamePool.scheduleWithFixedDelay(alvo, 0, 30, TimeUnit.MILLISECONDS);
     }
 
     private Alvo criarAlvoAleatorio(Random rand, int x, int y) {
@@ -610,22 +723,26 @@ public class Jogo {
         if (threadColetaDados != null) threadColetaDados.interrupt();
         if (threadCPS != null) threadCPS.interrupt();
 
-        for (Alvo a : alvos) {
-            a.setAtivo(false);
-            a.interrupt();
-        }
-        for (Canhao c : canhoes) {
-            c.setAtivo(false);
-            c.interrupt();
-        }
-        for (Projetil p : projeteis) {
-            p.setAtivo(false);
-            p.interrupt();
-        }
+        // AV4: Desativa todas as entidades
+        for (Alvo a : alvos) a.setAtivo(false);
+        for (Canhao c : canhoes) c.setAtivo(false);
+        for (Projetil p : projeteis) p.setAtivo(false);
 
         if (reconciliacao != null) {
             reconciliacao.setAtivo(false);
             reconciliacao.interrupt();
+        }
+        
+        if (gamePool != null) {
+            gamePool.shutdownNow();
+            try {
+                if (!gamePool.awaitTermination(200, TimeUnit.MILLISECONDS)) {
+                    gamePool.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                gamePool.shutdownNow();
+            }
+            gamePool = null;
         }
     }
 
